@@ -13,7 +13,7 @@ import { useState, useEffect, useRef } from "react";
 // When your FastAPI backend is running, replace this URL.
 // In Colab: paste your ngrok URL here, e.g. "https://xxxx.ngrok-free.app"
 // When deployed: paste your Railway/Render URL
-const API_BASE = ""; // e.g. "https://your-ngrok-url.ngrok-free.app"
+const API_BASE = "https://encase-fv-api.onrender.com"; // e.g. "https://your-ngrok-url.ngrok-free.app"
 const USE_MOCK = !API_BASE; // auto-falls back to simulation when no API
 
 /* ─── GLOBAL CSS ─────────────────────────────────────────────── */
