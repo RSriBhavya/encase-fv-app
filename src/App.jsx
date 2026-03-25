@@ -888,7 +888,7 @@ function Landing({ goTo }) {
             </div>
             <h1 className="hero-h display">
               Cancelable biometrics.<br />
-              <em>Impossible to&nbsp;reverse.</em>
+              <em>Impossible to<br />reverse.</em>
             </h1>
             <p className="hero-p">
               Finger vein authentication with per-identity random projection and CKKS homomorphic encryption.
