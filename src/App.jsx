@@ -229,7 +229,7 @@ body,body.light{
 .hero{
   max-width:1160px;margin:0 auto;
   padding:76px 40px 60px;
-  display:grid;grid-template-columns:1fr 1fr;gap:76px;
+  display:grid;grid-template-columns:1fr 1fr;gap:48px;
   align-items:start;position:relative;z-index:1;
 }
 
