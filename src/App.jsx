@@ -229,7 +229,7 @@ body,body.light{
 .hero{
   max-width:1160px;margin:0 auto;
   padding:76px 40px 60px;
-  display:grid;grid-template-columns:55fr 45fr;gap:48px;
+  display:grid;grid-template-columns:1fr 1fr;gap:76px;
   align-items:start;position:relative;z-index:1;
 }
 
@@ -888,7 +888,7 @@ function Landing({ goTo }) {
             </div>
             <h1 className="hero-h display">
               Cancelable biometrics.<br />
-              <em>Impossible to<br />reverse.</em>
+              Impossible to reverse.
             </h1>
             <p className="hero-p">
               Finger vein authentication with per-identity random projection and CKKS homomorphic encryption.
