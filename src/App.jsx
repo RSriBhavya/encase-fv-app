@@ -254,7 +254,7 @@ body,body.light{
 
 .hero-h{
   font-family:'Clash Display',sans-serif;
-  font-size:clamp(42px,4.4vw,60px);
+  font-size:clamp(42px,4.2vw,60px);
   font-weight:600;line-height:1.05;
   color:var(--t1);letter-spacing:-.035em;margin-bottom:18px;
 }
