@@ -915,28 +915,33 @@ function Landing({ goTo }) {
             </div>
           </div>
           <div className="hero-r">
-            <div className="fcard" onClick={() => goTo("hardware")}>
+            <div className="fcard" onClick={() => goTo("dashboard")} style={{flex:1}}>
               <div className="fc-top">
                 <div>
-                  <div className="fc-lbl">Physical Layer</div>
-                  <div className="fc-ttl display">Hardware Stack</div>
-                </div>
-                <div className="fc-arr">→</div>
-              </div>
-              <div className="fc-desc">NIR camera, 850nm LED illumination, Jetson Orin edge compute, and TPM 2.0 secure key storage — the physical substrate for production deployment.</div>
-              <div className="fc-tags">
-                {["FLIR Blackfly S", "Thorlabs 850nm", "Jetson Orin", "TPM 2.0"].map(c => <span key={c} className="chip">{c}</span>)}
-              </div>
-            </div>
-            <div className="fcard" onClick={() => goTo("dashboard")}>
-              <div className="fc-top">
-                <div>
-                  <div className="fc-lbl">Software Demo</div>
+                  <div className="fc-lbl">Live Demo</div>
                   <div className="fc-ttl display">Auth Dashboard</div>
                 </div>
                 <div className="fc-arr">→</div>
               </div>
-              <div className="fc-desc">Live CKKS verification pipeline with encrypted-domain distance computation, ROC analysis, and the complete 4-stage cryptographic trace.</div>
+              <div className="fc-desc">
+                Run the full ENCASE-FV pipeline live — upload a finger vein image, enter an identity ID, and watch the 7-stage CKKS verification trace in real time.
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
+                {[
+                  {icon:"🔬", label:"CNN Feature Extraction", sub:"800D L2-normalised embedding"},
+                  {icon:"🔀", label:"Random Projection", sub:"Per-identity cancelable 256D space"},
+                  {icon:"📐", label:"MDS Compression", sub:"Nyström extension → 32D metric"},
+                  {icon:"🔐", label:"CKKS Homomorphic Match", sub:"Distance in ciphertext domain only"},
+                ].map((s,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 11px",background:"var(--surface2)",borderRadius:8,border:"1px solid var(--border)"}}>
+                    <span style={{fontSize:14}}>{s.icon}</span>
+                    <div>
+                      <div style={{fontSize:11.5,fontWeight:600,color:"var(--t1)"}}>{s.label}</div>
+                      <div style={{fontSize:10.5,color:"var(--t4)",marginTop:1}}>{s.sub}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
               <div className="fc-tags">
                 {["PyTorch CNN", "TenSEAL CKKS", "800D Embeddings", "32D Encrypted"].map(c => <span key={c} className="chip">{c}</span>)}
               </div>
@@ -985,6 +990,24 @@ function Landing({ goTo }) {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+      <div style={{background:"var(--bg2)",borderTop:"1px solid var(--border)",padding:"32px 0",textAlign:"center"}}>
+        <div style={{maxWidth:480,margin:"0 auto",padding:"0 40px"}}>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--t4)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:10,fontFamily:"'JetBrains Mono',monospace"}}>
+            Physical Deployment
+          </div>
+          <div style={{fontSize:14,color:"var(--t2)",marginBottom:18,lineHeight:1.7}}>
+            Planning to deploy ENCASE-FV with NIR hardware? View the component list, integration specs, and step-by-step enrollment guide.
+          </div>
+          <button onClick={() => goTo("hardware")} style={{
+            padding:"10px 24px",borderRadius:8,fontSize:13,fontWeight:600,
+            color:"var(--t2)",cursor:"pointer",
+            border:"1px solid var(--border2)",background:"transparent",
+            fontFamily:"'Satoshi',sans-serif",display:"inline-flex",alignItems:"center",gap:8
+          }}>
+            Set Up Your Device →
+          </button>
         </div>
       </div>
     </div>
