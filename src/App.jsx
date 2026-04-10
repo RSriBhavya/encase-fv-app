@@ -877,7 +877,10 @@ function Landing({ goTo }) {
                 <span className="live-dot" /><span>Live</span>
               </span>
             </div>
-            <div style={{fontSize:12,fontWeight:600,letterSpacing:".01em",marginBottom:12,lineHeight:1.65,maxWidth:490}}>
+            <h1 className="hero-h display" style={{fontSize:"clamp(48px,6vw,80px)",letterSpacing:"-.04em",marginBottom:10}}>
+              ENCASE<b style={{color:"var(--accent2)"}}>-FV</b>
+            </h1>
+            <div style={{fontSize:12,fontWeight:600,letterSpacing:".01em",marginBottom:14,lineHeight:1.65,maxWidth:490}}>
               <span style={{color:"var(--accent2)",fontWeight:800}}>E</span><span style={{color:"var(--t2)"}}>ncrypted </span>
               <span style={{color:"var(--accent2)",fontWeight:800}}>C</span><span style={{color:"var(--t2)"}}>ancelable </span>
               <span style={{color:"var(--accent2)",fontWeight:800}}>A</span><span style={{color:"var(--t2)"}}>uthentication </span>
@@ -886,10 +889,6 @@ function Landing({ goTo }) {
               <span style={{color:"var(--accent2)",fontWeight:800}}>F</span><span style={{color:"var(--t2)"}}>inger </span>
               <span style={{color:"var(--accent2)",fontWeight:800}}>V</span><span style={{color:"var(--t2)"}}>ein</span>
             </div>
-            <h1 className="hero-h display">
-              Cancelable biometrics.<br />
-             <span style={{color:"var(--accent2)"}}>Impossible to reverse.</span>
-            </h1>
             <p className="hero-p">
               Finger vein authentication with per-identity random projection and CKKS homomorphic encryption.
               Verification is computed entirely in the ciphertext domain — your biometric template is never exposed in plaintext.
@@ -1585,6 +1584,59 @@ function VerifyTab() {
 
 
 /* ─── ENROLL TAB ─── */
+function EnrollImageUpload() {
+  const [images, setImages] = React.useState([]);
+  const fileRef = React.useRef();
+  const handleFiles = (files) => {
+    const imgs = Array.from(files).filter(f => f.type.startsWith("image/")).slice(0, 8);
+    const readers = imgs.map(f => new Promise(res => {
+      const r = new FileReader();
+      r.onload = e => res({ name: f.name, src: e.target.result });
+      r.readAsDataURL(f);
+    }));
+    Promise.all(readers).then(results => setImages(prev => [...prev, ...results].slice(0, 8)));
+  };
+  const removeImg = (i) => setImages(prev => prev.filter((_,idx) => idx !== i));
+  return (
+    <div>
+      {images.length > 0 ? (
+        <div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:8}}>
+            {images.map((img,i) => (
+              <div key={i} style={{position:"relative",borderRadius:7,overflow:"hidden",border:"1px solid var(--border2)",background:"var(--surface3)"}}>
+                <img src={img.src} alt={img.name} style={{width:"100%",height:52,objectFit:"cover",display:"block"}}/>
+                <div onClick={()=>removeImg(i)} style={{position:"absolute",top:3,right:3,width:16,height:16,borderRadius:"50%",background:"rgba(0,0,0,.6)",color:"#fff",fontSize:9,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>✕</div>
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:7,alignItems:"center"}}>
+            <span style={{fontSize:11,color:"var(--t4)"}}>{images.length}/8 images</span>
+            {images.length < 8 && (
+              <button onClick={() => fileRef.current?.click()} style={{fontSize:11,fontWeight:600,color:"var(--accent2)",background:"var(--abg)",border:"1px solid var(--abdr)",borderRadius:5,padding:"3px 9px",cursor:"pointer"}}>
+                + Upload More
+              </button>
+            )}
+            <button onClick={() => setImages([])} style={{fontSize:11,color:"var(--t4)",background:"transparent",border:"none",cursor:"pointer",marginLeft:"auto"}}>
+              Clear all
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div
+          onClick={() => fileRef.current?.click()}
+          onDragOver={e => e.preventDefault()}
+          onDrop={e => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
+          style={{border:"1.5px dashed var(--border2)",borderRadius:10,padding:"22px 14px",textAlign:"center",background:"var(--surface2)",cursor:"pointer"}}
+        >
+          <div style={{fontSize:13,color:"var(--t3)",marginBottom:4}}>Drop 8 NIR finger vein images</div>
+          <div style={{fontSize:11,color:"var(--t4)"}}>BMP / PNG · 60×120px ROI · FLIR camera</div>
+        </div>
+      )}
+      <input ref={fileRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={e => handleFiles(e.target.files)}/>
+    </div>
+  );
+}
+
 function EnrollTab() {
   const STEPS = [
     { n:1, title:"Position Finger", desc:"Place your finger on the NIR illuminated capture bed. Ensure the finger is flat, centered, and steady. The FLIR Blackfly S camera captures at 60×120px ROI." },
@@ -1622,10 +1674,7 @@ function EnrollTab() {
             </div>
             <div>
               <div className="vlbl">Enrollment Images (8 required)</div>
-              <div style={{border:"1.5px dashed var(--border2)",borderRadius:10,padding:"22px 14px",textAlign:"center",background:"var(--surface2)",opacity:.45}}>
-                <div style={{fontSize:13,color:"var(--t3)",marginBottom:4}}>Drop 8 NIR finger vein images</div>
-                <div style={{fontSize:11,color:"var(--t4)"}}>BMP / PNG · 60×120px ROI · FLIR camera</div>
-              </div>
+              <EnrollImageUpload />
             </div>
           </div>
           <button className="vbtn" disabled style={{opacity:.3,cursor:"not-allowed"}}>
