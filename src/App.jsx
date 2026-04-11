@@ -14,7 +14,7 @@ import { useState, useEffect, useRef } from "react";
 // In Colab: paste your ngrok URL here, e.g. "https://xxxx.ngrok-free.app"
 // When deployed: paste your Railway/Render URL
 const API_BASE = "https://encase-fv-api.onrender.com";
-const USE_MOCK = false;
+const USE_MOCK = !API_BASE; // auto-falls back to simulation when no API
 
 /* ─── GLOBAL CSS ─────────────────────────────────────────────── */
 const CSS = `
@@ -23,644 +23,616 @@ const CSS = `
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
-::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
 
-/* ── THEME VARIABLES ── */
 body{
   font-family:'Satoshi',system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;
-  /* Smooth theme transition on everything */
-  transition:
-    background-color .35s cubic-bezier(.4,0,.2,1),
-    color .35s cubic-bezier(.4,0,.2,1);
+  transition:background-color .15s ease,color .15s ease;
 }
 body *{
   transition:
-    background-color .35s cubic-bezier(.4,0,.2,1),
-    color .25s cubic-bezier(.4,0,.2,1),
-    border-color .3s cubic-bezier(.4,0,.2,1),
-    box-shadow .3s cubic-bezier(.4,0,.2,1);
+    background-color .15s ease,
+    color .12s ease,
+    border-color .15s ease,
+    box-shadow .15s ease,
+    opacity .15s ease;
 }
-/* Except animations — don't transition those */
 body *.no-transition,
 body *[class*="spinner"],
-body *[class*="pulse"],
-body *[class*="scan"]{
-  transition:none !important;
-}
+body *[class*="pulse"]{transition:none !important;}
 
-/* ── DARK (default) ── */
+/* ── DARK ── */
 :root{
-  --bg:       #06080f;
-  --bg2:      #090d1a;
-  --surface:  #0d1220;
-  --surface2: #111827;
-  --surface3: #162033;
-  --border:   #1a2540;
-  --border2:  #243356;
-  --t1:       #eeeae3;
-  --t2:       #b8b2a8;
-  --t3:       #6e6a63;
-  --t4:       #3e3c38;
-  --accent:   #4a7fe8;
-  --accent2:  #6395f0;
-  --accent3:  #8fb5ff;
-  --abg:      #081528;
-  --abdr:     #152444;
-  --green:    #3dd68c;
-  --gbg:      #041410;
-  --gbdr:     #0a3320;
-  --red:      #f87171;
-  --rbg:      #180505;
-  --rbdr:     #5c1a1a;
-  --amber:    #f59e0b;
-  --nav:      rgba(6,8,15,.88);
-  --glow:     0 0 40px rgba(74,127,232,.12);
-  --sh:       0 2px 8px rgba(0,0,0,.4);
-  --sh2:      0 8px 32px rgba(0,0,0,.55);
-  --hero:     radial-gradient(ellipse 70% 55% at 65% 25%,rgba(74,127,232,.1) 0%,transparent 65%),
-              radial-gradient(ellipse 40% 35% at 5% 85%,rgba(61,214,140,.05) 0%,transparent 55%),
-              linear-gradient(165deg,#06080f 0%,#090d1a 100%);
-  --grid:     rgba(255,255,255,.022);
+  --bg:        #08080d;
+  --bg2:       #0c0c13;
+  --surface:   #0f0f18;
+  --surface2:  #13131e;
+  --surface3:  #181826;
+  --border:    rgba(255,255,255,.06);
+  --border2:   rgba(255,255,255,.1);
+  --t1:        #f1f0f5;
+  --t2:        #a09db8;
+  --t3:        #5a5870;
+  --t4:        #32303f;
+  --accent:    #2563eb;
+  --accent2:   #3b82f6;
+  --accent3:   #60a5fa;
+  --abg:       rgba(37,99,235,.08);
+  --abdr:      rgba(37,99,235,.2);
+  --green:     #22c55e;
+  --gbg:       rgba(34,197,94,.06);
+  --gbdr:      rgba(34,197,94,.18);
+  --red:       #ef4444;
+  --rbg:       rgba(239,68,68,.06);
+  --rbdr:      rgba(239,68,68,.18);
+  --amber:     #f59e0b;
+  --nav:       rgba(8,8,13,.85);
+  --sh:        0 1px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3);
+  --sh2:       0 4px 24px rgba(0,0,0,.6),0 1px 4px rgba(0,0,0,.4);
+  --hero:      radial-gradient(ellipse 60% 50% at 70% 20%,rgba(37,99,235,.07) 0%,transparent 60%),
+               linear-gradient(180deg,#08080d 0%,#0a0a12 100%);
+  --grid:      rgba(255,255,255,.025);
 }
 
 /* ── LIGHT ── */
 body.light{
-  --bg:       #f2f0eb;
-  --bg2:      #e9e7e2;
-  --surface:  #faf9f7;
-  --surface2: #f2f0eb;
-  --surface3: #eae8e3;
-  --border:   #dcdad3;
-  --border2:  #c8c5bc;
-  --t1:       #0d0f18;
-  --t2:       #2c2f3e;
-  --t3:       #5f6070;
-  --t4:       #9896a2;
-  --accent:   #2552c8;
-  --accent2:  #1e44b0;
-  --accent3:  #3b6fd4;
-  --abg:      #eef2fc;
-  --abdr:     #c5d3f5;
-  --green:    #16803c;
-  --gbg:      #f0fdf5;
-  --gbdr:     #bbf7d0;
-  --red:      #b91c1c;
-  --rbg:      #fef2f2;
-  --rbdr:     #fecaca;
-  --amber:    #b45309;
-  --nav:      rgba(242,240,235,.9);
-  --glow:     0 0 40px rgba(37,82,200,.08);
-  --sh:       0 1px 4px rgba(0,0,0,.06),0 2px 10px rgba(0,0,0,.04);
-  --sh2:      0 4px 20px rgba(0,0,0,.1),0 1px 6px rgba(0,0,0,.05);
-  --hero:     radial-gradient(ellipse 70% 55% at 65% 25%,rgba(37,82,200,.06) 0%,transparent 65%),
-              linear-gradient(165deg,#f2f0eb 0%,#e9e7e2 100%);
-  --grid:     rgba(0,0,0,.018);
+  --bg:        #f8f9fc;
+  --bg2:       #f1f3f8;
+  --surface:   #ffffff;
+  --surface2:  #f8f9fc;
+  --surface3:  #f1f3f8;
+  --border:    rgba(0,0,0,.07);
+  --border2:   rgba(0,0,0,.12);
+  --t1:        #0a0a14;
+  --t2:        #3d3d52;
+  --t3:        #6b6b84;
+  --t4:        #a8a8bc;
+  --accent:    #1d4ed8;
+  --accent2:   #2563eb;
+  --accent3:   #3b82f6;
+  --abg:       rgba(29,78,216,.05);
+  --abdr:      rgba(29,78,216,.15);
+  --green:     #16a34a;
+  --gbg:       rgba(22,163,74,.05);
+  --gbdr:      rgba(22,163,74,.15);
+  --red:       #dc2626;
+  --rbg:       rgba(220,38,38,.05);
+  --rbdr:      rgba(220,38,38,.15);
+  --amber:     #d97706;
+  --nav:       rgba(248,249,252,.92);
+  --sh:        0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --sh2:       0 4px 24px rgba(0,0,0,.1),0 1px 4px rgba(0,0,0,.06);
+  --hero:      radial-gradient(ellipse 60% 50% at 70% 20%,rgba(37,99,235,.04) 0%,transparent 60%),
+               linear-gradient(180deg,#f8f9fc 0%,#f1f3f8 100%);
+  --grid:      rgba(0,0,0,.02);
 }
 
-body,body.light{
-  background:var(--bg);
-  color:var(--t1);
-  min-height:100vh;
-}
+body,body.light{background:var(--bg);color:var(--t1);min-height:100vh;}
 
-/* ── TYPOGRAPHY ── */
 .display{font-family:'Clash Display',system-ui,sans-serif;}
 .mono{font-family:'JetBrains Mono',monospace;}
 
 /* ═══ NAV ═══════════════════════════════════════════════ */
 .nav{
   position:fixed;top:0;left:0;right:0;z-index:400;
-  height:56px;display:flex;align-items:center;gap:10px;padding:0 26px;
+  height:56px;display:flex;align-items:center;gap:12px;padding:0 28px;
   background:var(--nav);
-  backdrop-filter:blur(28px) saturate(1.5);
-  -webkit-backdrop-filter:blur(28px) saturate(1.5);
+  backdrop-filter:blur(20px) saturate(1.8);
+  -webkit-backdrop-filter:blur(20px) saturate(1.8);
   border-bottom:1px solid var(--border);
 }
-.nav-brand{
-  display:flex;align-items:center;gap:9px;cursor:pointer;flex-shrink:0;
-}
+.nav-brand{display:flex;align-items:center;gap:8px;cursor:pointer;flex-shrink:0;}
 .nav-mark{
-  width:28px;height:28px;border-radius:8px;flex-shrink:0;
-  background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);
+  width:26px;height:26px;border-radius:6px;flex-shrink:0;
+  background:var(--accent);
   display:flex;align-items:center;justify-content:center;
 }
 .nav-name{
-  font-family:'Clash Display',sans-serif;font-size:15.5px;
-  font-weight:600;color:var(--t1);letter-spacing:-.02em;
+  font-family:'Clash Display',sans-serif;font-size:15px;
+  font-weight:600;color:var(--t1);letter-spacing:-.025em;
 }
 .nav-name b{color:var(--accent2);}
-.nav-tagline{
-  font-size:9.5px;font-weight:600;color:var(--t4);
-  letter-spacing:.08em;text-transform:uppercase;
-  display:none;
-}
 .nav-back{
-  width:30px;height:30px;border-radius:7px;
+  width:28px;height:28px;border-radius:6px;
   border:1px solid var(--border2);background:transparent;
-  color:var(--t3);cursor:pointer;font-size:13px;
-  display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;
+  color:var(--t3);cursor:pointer;font-size:12px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
 }
-.nav-back:hover{border-color:var(--accent2);color:var(--accent2);}
+.nav-back:hover{background:var(--surface2);color:var(--t1);}
 .nav-gap{flex:1;}
 .nav-tabs{
-  display:flex;gap:1px;
+  display:flex;gap:0;
   background:var(--surface2);border:1px solid var(--border);
-  border-radius:9px;padding:3px;
+  border-radius:8px;padding:3px;
 }
 .ntab{
-  padding:5px 14px;border-radius:6px;
-  font-size:12.5px;font-weight:500;
+  padding:5px 13px;border-radius:5px;
+  font-size:12px;font-weight:500;letter-spacing:.005em;
   color:var(--t3);cursor:pointer;border:none;background:transparent;
-  font-family:'Satoshi',sans-serif;
+  font-family:'Satoshi',sans-serif;white-space:nowrap;
 }
 .ntab:hover{color:var(--t2);}
 .ntab.on{
   background:var(--surface);color:var(--accent2);
-  box-shadow:var(--sh);border:1px solid var(--border);
+  box-shadow:var(--sh);border:1px solid var(--border2);
 }
-.nav-r{display:flex;gap:7px;align-items:center;flex-shrink:0;}
+.nav-r{display:flex;gap:6px;align-items:center;flex-shrink:0;}
 .icon-btn{
-  width:30px;height:30px;border-radius:7px;
+  width:28px;height:28px;border-radius:6px;
   border:1px solid var(--border2);background:transparent;
   color:var(--t3);cursor:pointer;font-size:13px;
   display:flex;align-items:center;justify-content:center;
 }
-.icon-btn:hover{border-color:var(--accent2);color:var(--accent2);}
+.icon-btn:hover{background:var(--surface2);color:var(--t1);}
 .btn-outline{
-  padding:6px 14px;border-radius:7px;font-size:12.5px;font-weight:600;
+  padding:5px 13px;border-radius:6px;font-size:12px;font-weight:500;
   color:var(--t2);cursor:pointer;border:1px solid var(--border2);background:transparent;
   font-family:'Satoshi',sans-serif;
 }
-.btn-outline:hover{border-color:var(--accent);color:var(--accent2);}
+.btn-outline:hover{border-color:var(--border2);background:var(--surface2);color:var(--t1);}
 .btn-solid{
-  padding:6px 16px;border-radius:7px;font-size:12.5px;font-weight:700;
+  padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;
   color:#fff;cursor:pointer;border:none;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  background:var(--accent);
   font-family:'Satoshi',sans-serif;
-  box-shadow:0 2px 10px rgba(74,127,232,.28);
 }
-.btn-solid:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 4px 16px rgba(74,127,232,.4);}
+.btn-solid:hover{background:var(--accent2);}
 
 /* ═══ LANDING ════════════════════════════════════════════ */
 .landing{padding-top:56px;background:var(--hero);min-height:100vh;position:relative;}
+.land-rel{position:relative;overflow:hidden;}
+
+/* grid texture */
 .landing::before{
   content:'';position:absolute;inset:0;z-index:0;
-  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-  background-size:48px 48px;pointer-events:none;
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:48px 48px;
+  pointer-events:none;
 }
-.land-rel{position:relative;overflow:hidden;}
-.orb{
-  position:absolute;border-radius:50%;filter:blur(90px);
-  pointer-events:none;z-index:0;
-}
+
+.orb{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0;}
 .orb-a{
-  width:700px;height:700px;right:-180px;top:-180px;
-  background:radial-gradient(circle,rgba(74,127,232,.11) 0%,transparent 70%);
+  width:600px;height:600px;right:-160px;top:-160px;
+  background:radial-gradient(circle,rgba(37,99,235,.09) 0%,transparent 70%);
 }
 .orb-b{
-  width:450px;height:450px;left:-100px;bottom:40px;
-  background:radial-gradient(circle,rgba(61,214,140,.06) 0%,transparent 70%);
+  width:400px;height:400px;left:-80px;bottom:40px;
+  background:radial-gradient(circle,rgba(34,197,94,.04) 0%,transparent 70%);
 }
 
 .hero{
   max-width:1160px;margin:0 auto;
-  padding:76px 40px 60px;
-  display:grid;grid-template-columns:1fr 1fr;gap:76px;
+  padding:72px 32px 56px;
+  display:grid;grid-template-columns:1fr 1fr;gap:72px;
   align-items:start;position:relative;z-index:1;
 }
 
 .hero-badge{
-  display:inline-flex;align-items:center;gap:8px;
-  padding:5px 12px 5px 7px;border-radius:100px;
+  display:inline-flex;align-items:center;gap:7px;
+  padding:4px 11px 4px 6px;border-radius:100px;
   background:var(--abg);border:1px solid var(--abdr);
-  font-size:11px;font-weight:700;color:var(--accent2);
-  letter-spacing:.04em;margin-bottom:22px;
-  box-shadow:var(--glow);
+  font-size:11px;font-weight:600;color:var(--accent2);
+  letter-spacing:.02em;margin-bottom:20px;
 }
 .badge-icon{
-  width:18px;height:18px;border-radius:50%;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  width:16px;height:16px;border-radius:50%;
+  background:var(--accent);
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
 }
 .live-dot{
-  width:6px;height:6px;border-radius:50%;background:var(--green);
+  width:5px;height:5px;border-radius:50%;background:var(--green);
   animation:livepulse 2s ease-in-out infinite;
 }
 @keyframes livepulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.25;transform:scale(.55);}}
 
 .hero-h{
   font-family:'Clash Display',sans-serif;
-  font-size:clamp(42px,4vw,58px);
-  font-weight:600;line-height:1.05;
-  color:var(--t1);letter-spacing:-.035em;margin-bottom:18px;
+  font-size:clamp(32px,3.8vw,52px);
+  font-weight:600;line-height:1.06;
+  color:var(--t1);letter-spacing:-.03em;margin-bottom:16px;
 }
 .hero-h em{
   font-style:italic;font-weight:400;
-  background:linear-gradient(130deg,var(--accent2) 0%,var(--accent3) 100%);
-  -webkit-background-clip:text;background-clip:text;
-  -webkit-text-fill-color:transparent;
+  color:var(--accent2);
+  -webkit-text-fill-color:var(--accent2);
 }
 .hero-p{
-  font-size:15px;line-height:1.84;color:var(--t3);
-  max-width:415px;margin-bottom:30px;
+  font-size:14.5px;line-height:1.8;color:var(--t3);
+  max-width:400px;margin-bottom:28px;
 }
-.hero-cta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:42px;}
+.hero-cta{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px;}
 .cta-p{
-  padding:11px 26px;border-radius:10px;font-size:14px;font-weight:700;
+  padding:9px 22px;border-radius:8px;font-size:13.5px;font-weight:600;
   color:#fff;cursor:pointer;border:none;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
-  font-family:'Satoshi',sans-serif;
-  box-shadow:0 4px 18px rgba(74,127,232,.35);letter-spacing:.01em;
+  background:var(--accent);
+  font-family:'Satoshi',sans-serif;letter-spacing:.01em;
 }
-.cta-p:hover{transform:translateY(-2px);box-shadow:0 7px 26px rgba(74,127,232,.5);}
+.cta-p:hover{background:var(--accent2);}
 .cta-s{
-  padding:11px 26px;border-radius:10px;font-size:14px;font-weight:600;
+  padding:9px 22px;border-radius:8px;font-size:13.5px;font-weight:500;
   color:var(--t2);cursor:pointer;
-  border:1px solid var(--border2);background:var(--surface);
+  border:1px solid var(--border2);background:transparent;
   font-family:'Satoshi',sans-serif;
 }
-.cta-s:hover{border-color:var(--accent);color:var(--accent2);}
+.cta-s:hover{background:var(--surface2);color:var(--t1);}
 
 .hero-stats{
-  display:flex;gap:26px;padding-top:22px;
+  display:flex;gap:24px;padding-top:20px;
   border-top:1px solid var(--border);
 }
 .hs-v{
   font-family:'Clash Display',sans-serif;
-  font-size:23px;font-weight:600;
+  font-size:22px;font-weight:600;
   color:var(--t1);letter-spacing:-.025em;
 }
 .hs-v b{color:var(--accent2);}
-.hs-l{font-size:11px;color:var(--t4);margin-top:3px;font-weight:500;}
+.hs-l{font-size:10.5px;color:var(--t4);margin-top:3px;font-weight:500;}
 
 /* Right panel feature cards */
-.hero-r{display:flex;flex-direction:column;gap:13px;padding-top:6px;}
+.hero-r{display:flex;flex-direction:column;gap:12px;padding-top:4px;}
 .fcard{
   background:var(--surface);border:1px solid var(--border);
-  border-radius:18px;padding:24px;cursor:pointer;
+  border-radius:14px;padding:22px;cursor:pointer;
   position:relative;overflow:hidden;
 }
-.fcard::before{
-  content:'';position:absolute;inset:0;
-  background:radial-gradient(ellipse 80% 50% at 90% 50%,rgba(74,127,232,.09) 0%,transparent 65%);
-  opacity:0;
-}
-.fcard:hover{border-color:var(--abdr);box-shadow:var(--sh2);transform:translateY(-2px);}
-.fcard:hover::before{opacity:1;}
-.fc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:11px;}
+.fcard:hover{border-color:var(--border2);box-shadow:var(--sh2);}
+.fc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;}
 .fc-lbl{
-  font-size:10px;font-weight:700;color:var(--accent2);
+  font-size:10px;font-weight:600;color:var(--accent2);
   letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;
+  font-family:'JetBrains Mono',monospace;
 }
 .fc-ttl{
   font-family:'Clash Display',sans-serif;
-  font-size:18.5px;font-weight:600;color:var(--t1);letter-spacing:-.015em;
+  font-size:17px;font-weight:600;color:var(--t1);letter-spacing:-.015em;
 }
 .fc-arr{
-  width:27px;height:27px;border-radius:7px;
+  width:26px;height:26px;border-radius:6px;
   border:1px solid var(--border2);
   display:flex;align-items:center;justify-content:center;
-  font-size:12px;color:var(--t4);flex-shrink:0;
+  font-size:11px;color:var(--t4);flex-shrink:0;
 }
-.fcard:hover .fc-arr{border-color:var(--accent2);color:var(--accent2);background:var(--abg);}
-.fc-desc{font-size:13px;color:var(--t3);line-height:1.72;margin-bottom:13px;}
+.fcard:hover .fc-arr{background:var(--abg);border-color:var(--abdr);color:var(--accent2);}
+.fc-desc{font-size:12.5px;color:var(--t3);line-height:1.7;margin-bottom:12px;}
 .fc-tags{display:flex;gap:5px;flex-wrap:wrap;}
 .chip{
-  padding:3px 9px;border-radius:5px;font-size:11px;font-weight:500;
+  padding:3px 8px;border-radius:4px;font-size:10.5px;font-weight:500;
   background:var(--surface2);border:1px solid var(--border);color:var(--t3);
+  font-family:'JetBrains Mono',monospace;
 }
 
 /* Stat bar */
 .statbar{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
 .statbar-in{
-  max-width:1160px;margin:0 auto;padding:0 40px;
+  max-width:1160px;margin:0 auto;padding:0 32px;
   display:grid;grid-template-columns:repeat(5,1fr);
 }
-.sbi{padding:21px 14px;text-align:center;border-right:1px solid var(--border);}
+.sbi{padding:18px 12px;text-align:center;border-right:1px solid var(--border);}
 .sbi:last-child{border-right:none;}
 .sbi-v{
-  font-family:'Clash Display',sans-serif;
-  font-size:20px;font-weight:600;color:var(--t1);letter-spacing:-.02em;
+  font-family:'JetBrains Mono',monospace;
+  font-size:18px;font-weight:700;color:var(--t1);letter-spacing:-.02em;
 }
 .sbi-v span{color:var(--accent2);}
-.sbi-l{font-size:11px;color:var(--t4);margin-top:4px;font-weight:500;}
+.sbi-l{font-size:10px;color:var(--t4);margin-top:4px;font-weight:500;letter-spacing:.02em;}
 
 /* ═══ HARDWARE ════════════════════════════════════════════ */
 .page-wrap{padding-top:56px;min-height:100vh;}
-.page-in{max-width:1160px;margin:0 auto;padding:46px 40px;}
+.page-in{max-width:1160px;margin:0 auto;padding:40px 32px;}
 .page-eye{
-  font-size:10px;font-weight:700;color:var(--accent2);
-  letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;
+  font-size:10px;font-weight:600;color:var(--accent2);
+  letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;
+  font-family:'JetBrains Mono',monospace;
 }
 .page-h{
   font-family:'Clash Display',sans-serif;
-  font-size:clamp(28px,3.8vw,44px);font-weight:600;
-  color:var(--t1);letter-spacing:-.03em;margin-bottom:12px;line-height:1.08;
+  font-size:clamp(26px,3.4vw,40px);font-weight:600;
+  color:var(--t1);letter-spacing:-.03em;margin-bottom:10px;line-height:1.08;
 }
-.page-p{font-size:14px;color:var(--t3);max-width:570px;line-height:1.82;}
+.page-p{font-size:14px;color:var(--t3);max-width:520px;line-height:1.8;}
 .sec-lbl{
-  font-size:10px;font-weight:700;color:var(--t4);
-  letter-spacing:.1em;text-transform:uppercase;
-  margin:38px 0 15px;
+  font-size:10px;font-weight:600;color:var(--t4);
+  letter-spacing:.12em;text-transform:uppercase;
+  margin:32px 0 13px;font-family:'JetBrains Mono',monospace;
 }
-.hw-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
+.hw-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .hwc{
   background:var(--surface);border:1px solid var(--border);
-  border-radius:16px;overflow:hidden;
+  border-radius:12px;overflow:hidden;
 }
-.hwc:hover{box-shadow:var(--sh2);border-color:var(--border2);}
-.hwc-bd{padding:22px;}
+.hwc:hover{border-color:var(--border2);}
+.hwc-bd{padding:20px;}
 .hwc-cat{
-  font-size:10px;font-weight:700;color:var(--accent2);
-  letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;
+  font-size:10px;font-weight:600;color:var(--accent2);
+  letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;
+  font-family:'JetBrains Mono',monospace;
 }
 .hwc-nm{
   font-family:'Clash Display',sans-serif;
-  font-size:17px;font-weight:600;color:var(--t1);
-  letter-spacing:-.015em;margin-bottom:9px;
+  font-size:16px;font-weight:600;color:var(--t1);
+  letter-spacing:-.015em;margin-bottom:8px;
 }
-.hwc-desc{font-size:12.5px;color:var(--t3);line-height:1.76;margin-bottom:15px;}
+.hwc-desc{font-size:12px;color:var(--t3);line-height:1.75;margin-bottom:14px;}
 .hwc-specs{
-  display:grid;grid-template-columns:1fr 1fr;gap:9px;
-  padding:12px;background:var(--surface2);border-radius:9px;margin-bottom:15px;
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
+  padding:11px;background:var(--surface2);border-radius:8px;margin-bottom:14px;
+  border:1px solid var(--border);
 }
-.spec-k{font-size:10.5px;color:var(--t4);font-weight:500;margin-bottom:2px;}
-.spec-v{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--t1);font-weight:500;}
+.spec-k{font-size:10px;color:var(--t4);font-weight:500;margin-bottom:2px;}
+.spec-v{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t1);font-weight:500;}
 .hwc-link{
   display:inline-flex;align-items:center;gap:5px;
-  font-size:12.5px;font-weight:600;color:var(--accent2);text-decoration:none;
+  font-size:12px;font-weight:600;color:var(--accent2);text-decoration:none;
 }
-.hwc-link:hover{gap:9px;}
+.hwc-link:hover{gap:8px;}
 .hwc-ft{
-  padding:11px 22px;border-top:1px solid var(--border);
+  padding:10px 20px;border-top:1px solid var(--border);
   background:var(--surface2);
   display:flex;align-items:center;justify-content:space-between;
 }
 .hwc-price{
   font-family:'JetBrains Mono',monospace;font-size:11px;
-  color:var(--t3);background:var(--border);padding:3px 9px;border-radius:5px;
+  color:var(--t3);background:var(--surface3);padding:3px 8px;border-radius:4px;
+  border:1px solid var(--border);
 }
-.int-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
-.int-hd{padding:17px 22px;border-bottom:1px solid var(--border);}
-.int-hd-t{font-size:13.5px;font-weight:700;color:var(--t1);}
-.int-hd-s{font-size:12px;color:var(--t3);margin-top:2px;}
+.int-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.int-hd{padding:15px 20px;border-bottom:1px solid var(--border);}
+.int-hd-t{font-size:13px;font-weight:600;color:var(--t1);}
+.int-hd-s{font-size:11.5px;color:var(--t3);margin-top:2px;}
 .int-grid{display:grid;grid-template-columns:repeat(4,1fr);}
-.int-item{padding:15px 18px;border-right:1px solid var(--border);}
+.int-item{padding:14px 16px;border-right:1px solid var(--border);}
 .int-item:last-child,.int-item:nth-child(4n){border-right:none;}
-.int-lbl{font-size:10px;font-weight:700;color:var(--t4);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px;}
-.int-val{font-size:13px;font-weight:600;color:var(--t1);}
+.int-lbl{font-size:9.5px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;font-family:'JetBrains Mono',monospace;}
+.int-val{font-size:13px;font-weight:600;color:var(--t1);font-family:'JetBrains Mono',monospace;}
 .int-sub{font-size:11px;color:var(--t3);margin-top:2px;}
-.pipeflow{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;}
-.pf-ttl{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:14px;}
+.pipeflow{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;}
+.pf-ttl{font-size:12.5px;font-weight:600;color:var(--t1);margin-bottom:14px;}
 .pf-nodes{display:flex;align-items:center;overflow-x:auto;padding-bottom:2px;}
-.pf-node{flex-shrink:0;text-align:center;min-width:90px;padding:0 5px;}
+.pf-node{flex-shrink:0;text-align:center;min-width:88px;padding:0 4px;}
 .pf-box{
-  width:38px;height:38px;border-radius:9px;
-  border:1.5px solid var(--abdr);background:var(--abg);
-  margin:0 auto 7px;display:flex;align-items:center;justify-content:center;
+  width:36px;height:36px;border-radius:8px;
+  border:1px solid var(--abdr);background:var(--abg);
+  margin:0 auto 6px;display:flex;align-items:center;justify-content:center;
 }
-.pf-n{font-size:13px;font-weight:700;color:var(--accent2);font-family:'JetBrains Mono',monospace;}
+.pf-n{font-size:12px;font-weight:700;color:var(--accent2);font-family:'JetBrains Mono',monospace;}
 .pf-nm{font-size:11px;font-weight:600;color:var(--t1);}
-.pf-sb{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--t3);margin-top:2px;}
-.pf-ar{font-size:13px;color:var(--border2);flex-shrink:0;padding:0 2px;}
+.pf-sb{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--t3);margin-top:2px;}
+.pf-ar{font-size:12px;color:var(--border2);flex-shrink:0;padding:0 2px;}
 
 /* ═══ AUTH ════════════════════════════════════════════════ */
 .auth-wrap{display:grid;grid-template-columns:1fr 1fr;min-height:100vh;}
 .auth-l{
-  padding:52px;display:flex;flex-direction:column;justify-content:space-between;
-  background:linear-gradient(155deg,#0f2460 0%,#081a4a 100%);
+  padding:48px;display:flex;flex-direction:column;justify-content:space-between;
+  background:var(--accent);
 }
-.auth-logo{
-  display:flex;align-items:center;gap:9px;cursor:pointer;
-}
+.auth-logo{display:flex;align-items:center;gap:8px;cursor:pointer;}
 .auth-logo-mk{
-  width:26px;height:26px;border-radius:7px;
+  width:24px;height:24px;border-radius:6px;
   background:rgba(255,255,255,.15);
   display:flex;align-items:center;justify-content:center;
 }
 .auth-logo-nm{
   font-family:'Clash Display',sans-serif;
-  font-size:15px;font-weight:600;color:rgba(255,255,255,.85);
+  font-size:14px;font-weight:600;color:rgba(255,255,255,.9);
 }
 .auth-l-h{
-  font-family:'Clash Display',sans-serif;font-weight:500;
-  font-size:clamp(26px,2.8vw,38px);color:#fff;
-  line-height:1.14;letter-spacing:-.025em;margin-bottom:13px;
+  font-family:'Clash Display',sans-serif;font-weight:600;
+  font-size:clamp(24px,2.6vw,36px);color:#fff;
+  line-height:1.12;letter-spacing:-.025em;margin-bottom:12px;
 }
-.auth-l-p{font-size:13.5px;color:rgba(255,255,255,.55);line-height:1.82;margin-bottom:30px;}
-.auth-stats{display:flex;flex-direction:column;gap:10px;}
+.auth-l-p{font-size:13px;color:rgba(255,255,255,.55);line-height:1.8;margin-bottom:28px;}
+.auth-stats{display:flex;flex-direction:column;gap:9px;}
 .als{
-  padding:15px 18px;border-radius:11px;
-  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);
+  padding:13px 16px;border-radius:10px;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);
 }
-.als-v{font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:600;color:#fff;}
-.als-l{font-size:11.5px;color:rgba(255,255,255,.45);margin-top:3px;}
+.als-v{font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:700;color:#fff;}
+.als-l{font-size:11px;color:rgba(255,255,255,.45);margin-top:2px;}
 .auth-foot{font-size:11px;color:rgba(255,255,255,.25);}
 .auth-r{
   background:var(--bg);
   display:flex;align-items:center;justify-content:center;
   padding:48px;
 }
-.auth-form{width:100%;max-width:355px;}
+.auth-form{width:100%;max-width:340px;}
 .auth-h{
   font-family:'Clash Display',sans-serif;
-  font-size:27px;font-weight:600;color:var(--t1);
+  font-size:26px;font-weight:600;color:var(--t1);
   letter-spacing:-.025em;margin-bottom:5px;
 }
-.auth-sub{font-size:13.5px;color:var(--t3);margin-bottom:28px;line-height:1.6;}
+.auth-sub{font-size:13px;color:var(--t3);margin-bottom:26px;line-height:1.6;}
 .auth-link{color:var(--accent2);cursor:pointer;font-weight:500;}
 .flbl{
-  font-size:10.5px;font-weight:700;color:var(--t4);
-  text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px;
+  font-size:10px;font-weight:600;color:var(--t3);
+  text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;
+  font-family:'JetBrains Mono',monospace;
 }
 .finp{
-  width:100%;padding:10px 12px;border:1.5px solid var(--border2);border-radius:8px;
-  font-size:13.5px;color:var(--t1);font-family:'Satoshi',sans-serif;
-  background:var(--surface);outline:none;margin-bottom:13px;
+  width:100%;padding:9px 11px;border:1px solid var(--border2);border-radius:7px;
+  font-size:13px;color:var(--t1);font-family:'Satoshi',sans-serif;
+  background:var(--surface);outline:none;margin-bottom:12px;
 }
-.finp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(74,127,232,.1);}
+.finp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.1);}
 .finp::placeholder{color:var(--t4);}
 .auth-btn{
-  width:100%;padding:11px;border-radius:9px;font-size:13.5px;font-weight:700;
+  width:100%;padding:10px;border-radius:8px;font-size:13px;font-weight:600;
   color:#fff;cursor:pointer;border:none;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
-  font-family:'Satoshi',sans-serif;
-  box-shadow:0 4px 14px rgba(74,127,232,.32);margin-top:20px;
+  background:var(--accent);
+  font-family:'Satoshi',sans-serif;margin-top:18px;
 }
-.auth-btn:hover{opacity:.92;transform:translateY(-1px);box-shadow:0 6px 20px rgba(74,127,232,.44);}
-.auth-btn:disabled{opacity:.35;cursor:not-allowed;transform:none;box-shadow:none;}
-.otp-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:8px;}
+.auth-btn:hover{background:var(--accent2);}
+.auth-btn:disabled{opacity:.35;cursor:not-allowed;}
+.otp-row{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-bottom:8px;}
 .otp-b{
   aspect-ratio:1;width:100%;
-  border:1.5px solid var(--border2);border-radius:9px;
-  text-align:center;font-size:21px;font-weight:700;
+  border:1px solid var(--border2);border-radius:8px;
+  text-align:center;font-size:20px;font-weight:700;
   color:var(--t1);font-family:'JetBrains Mono',monospace;
   background:var(--surface);outline:none;caret-color:var(--accent);
 }
-.otp-b:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(74,127,232,.1);}
+.otp-b:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.1);}
 .otp-b.filled{border-color:var(--abdr);background:var(--abg);color:var(--accent2);}
 .divider{
-  display:flex;align-items:center;gap:10px;margin:18px 0;
+  display:flex;align-items:center;gap:10px;margin:16px 0;
   font-size:11px;color:var(--t4);
 }
-.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border2);}
 .auth-note{
-  margin-top:14px;padding:10px 13px;border-radius:8px;
+  margin-top:12px;padding:10px 12px;border-radius:7px;
   background:var(--abg);border:1px solid var(--abdr);
-  font-size:11.5px;color:var(--accent2);line-height:1.6;
+  font-size:11px;color:var(--accent2);line-height:1.6;
 }
 
 /* ═══ DASHBOARD ═══════════════════════════════════════════ */
 .dash{padding-top:56px;min-height:100vh;}
-.dash-in{max-width:1160px;margin:0 auto;padding:24px 30px;}
+.dash-in{max-width:1160px;margin:0 auto;padding:20px 28px;}
 
 .welcome{
-  background:var(--surface);border:1px solid var(--border);border-radius:13px;
-  padding:15px 20px;display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:14px;
+  background:var(--surface);border:1px solid var(--border);border-radius:11px;
+  padding:13px 18px;display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:13px;
 }
-.welcome-t{font-size:14px;font-weight:700;color:var(--t1);}
-.welcome-s{font-size:12px;color:var(--t3);margin-top:3px;}
+.welcome-t{font-size:13.5px;font-weight:600;color:var(--t1);}
+.welcome-s{font-size:11.5px;color:var(--t3);margin-top:2px;}
 .pill-green{
-  display:flex;align-items:center;gap:7px;padding:6px 12px;
+  display:flex;align-items:center;gap:6px;padding:5px 11px;
   border-radius:100px;background:var(--gbg);border:1px solid var(--gbdr);
-  font-size:11.5px;font-weight:700;color:var(--green);white-space:nowrap;
+  font-size:11px;font-weight:600;color:var(--green);white-space:nowrap;
+  font-family:'JetBrains Mono',monospace;
 }
 .sdot{
-  width:6px;height:6px;border-radius:50%;background:var(--green);
+  width:5px;height:5px;border-radius:50%;background:var(--green);
   animation:livepulse 2.2s ease-in-out infinite;
 }
 
 /* Metric cards */
-.mcrow{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:14px;}
+.mcrow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:13px;}
 .mc{
   background:var(--surface);border:1px solid var(--border);
-  border-radius:13px;padding:17px 19px;position:relative;overflow:hidden;
+  border-radius:11px;padding:16px 18px;position:relative;overflow:hidden;
 }
 .mc.hl{
-  background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);
+  background:var(--accent);
   border-color:transparent;
 }
 .mc-shine{
-  position:absolute;right:-24px;top:-24px;
-  width:80px;height:80px;border-radius:50%;
-  background:rgba(255,255,255,.06);
+  position:absolute;right:-20px;top:-20px;
+  width:72px;height:72px;border-radius:50%;
+  background:rgba(255,255,255,.07);
 }
-.mc-lbl{font-size:10px;font-weight:700;color:var(--t4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:11px;}
+.mc-lbl{font-size:9.5px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;font-family:'JetBrains Mono',monospace;}
 .mc.hl .mc-lbl{color:rgba(255,255,255,.5);}
 .mc-val{
-  font-family:'Clash Display',sans-serif;
-  font-size:27px;font-weight:600;color:var(--t1);letter-spacing:-.025em;
+  font-family:'JetBrains Mono',monospace;
+  font-size:24px;font-weight:700;color:var(--t1);letter-spacing:-.02em;
 }
 .mc.hl .mc-val{color:#fff;}
-.mc-sub{font-size:11px;color:var(--t4);margin-top:5px;}
-.mc.hl .mc-sub{color:rgba(255,255,255,.38);}
+.mc-sub{font-size:10.5px;color:var(--t4);margin-top:4px;}
+.mc.hl .mc-sub{color:rgba(255,255,255,.4);}
 
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:13px;}
-.g21{display:grid;grid-template-columns:3fr 2fr;gap:13px;margin-bottom:13px;}
-.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:13px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.g21{display:grid;grid-template-columns:3fr 2fr;gap:12px;margin-bottom:12px;}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;}
 
 /* Card */
 .card{
   background:var(--surface);border:1px solid var(--border);
-  border-radius:14px;overflow:hidden;
+  border-radius:12px;overflow:hidden;
 }
 .card-hd{
-  padding:15px 19px;border-bottom:1px solid var(--border);
+  padding:14px 18px;border-bottom:1px solid var(--border);
   display:flex;align-items:flex-start;justify-content:space-between;
 }
-.card-ht{font-size:13px;font-weight:700;color:var(--t1);}
+.card-ht{font-size:13px;font-weight:600;color:var(--t1);}
 .card-hs{font-size:11px;color:var(--t3);margin-top:2px;}
-.card-bd{padding:17px 19px;}
+.card-bd{padding:16px 18px;}
 
 /* ─── VERIFY TAB ─── */
-.vlbl{font-size:10.5px;font-weight:700;color:var(--t4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;}
+.vlbl{font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;font-family:'JetBrains Mono',monospace;}
 .vinp{
-  width:100%;padding:9px 11px;border:1.5px solid var(--border2);border-radius:8px;
-  font-size:13px;color:var(--t1);font-family:'Satoshi',sans-serif;
+  width:100%;padding:8px 10px;border:1px solid var(--border2);border-radius:7px;
+  font-size:12.5px;color:var(--t1);font-family:'Satoshi',sans-serif;
   background:var(--surface2);outline:none;margin-bottom:4px;
 }
-.vinp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(74,127,232,.08);}
+.vinp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.08);}
 .vinp::placeholder{color:var(--t4);}
 .vinp.error{border-color:var(--red);}
-.inp-err{font-size:11px;color:var(--red);margin-bottom:10px;}
-.inp-ok{margin-bottom:10px;}
+.inp-err{font-size:11px;color:var(--red);margin-bottom:9px;}
+.inp-ok{margin-bottom:9px;}
 .dropz{
-  border:2px dashed var(--border2);border-radius:11px;
+  border:1.5px dashed var(--border2);border-radius:10px;
   padding:0;cursor:pointer;
-  background:var(--surface2);margin-bottom:12px;
-  position:relative;overflow:hidden;min-height:120px;
+  background:var(--surface2);margin-bottom:11px;
+  position:relative;overflow:hidden;min-height:110px;
   display:flex;align-items:center;justify-content:center;flex-direction:column;
 }
 .dropz:hover,.dropz.drag{border-color:var(--accent);background:var(--abg);}
 .dropz.ok{border-color:var(--green);border-style:solid;background:var(--gbg);}
-.dz-idle{padding:26px 16px;text-align:center;}
+.dz-idle{padding:22px 14px;text-align:center;}
 .dz-icon{
-  width:38px;height:38px;border-radius:9px;background:var(--border);
-  margin:0 auto 9px;display:flex;align-items:center;justify-content:center;
+  width:34px;height:34px;border-radius:8px;background:var(--surface3);
+  margin:0 auto 8px;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border2);
 }
-.dz-t{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:3px;}
-.dz-s{font-size:11.5px;color:var(--t4);}
-.dz-prev{width:100%;min-height:120px;object-fit:contain;padding:10px;display:block;}
+.dz-t{font-size:12.5px;font-weight:600;color:var(--t1);margin-bottom:2px;}
+.dz-s{font-size:11px;color:var(--t4);}
+.dz-prev{width:100%;min-height:110px;object-fit:contain;padding:10px;display:block;}
 .dz-bar{
   position:absolute;bottom:0;left:0;right:0;
-  display:flex;align-items:center;gap:8px;padding:7px 12px;
-  background:rgba(0,0,0,.35);border-top:1px solid var(--gbdr);
+  display:flex;align-items:center;gap:7px;padding:6px 11px;
+  background:rgba(0,0,0,.4);border-top:1px solid var(--gbdr);
 }
-.dz-fname{font-size:11px;color:#fff;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dz-rm{font-size:11px;color:rgba(255,255,255,.5);cursor:pointer;flex-shrink:0;}
+.dz-fname{font-size:10.5px;color:#fff;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'JetBrains Mono',monospace;}
+.dz-rm{font-size:10.5px;color:rgba(255,255,255,.5);cursor:pointer;flex-shrink:0;}
 .dz-rm:hover{color:#fff;}
 
 .vbtn{
-  width:100%;padding:11px;border-radius:9px;font-size:13.5px;font-weight:700;
-  color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));
+  width:100%;padding:10px;border-radius:8px;font-size:13px;font-weight:600;
+  color:#fff;background:var(--accent);
   border:none;cursor:pointer;font-family:'Satoshi',sans-serif;
-  display:flex;align-items:center;justify-content:center;gap:8px;
-  box-shadow:0 4px 14px rgba(74,127,232,.28);
+  display:flex;align-items:center;justify-content:center;gap:7px;
 }
-.vbtn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 20px rgba(74,127,232,.42);}
-.vbtn:disabled{opacity:.32;cursor:not-allowed;transform:none;box-shadow:none;}
+.vbtn:hover:not(:disabled){background:var(--accent2);}
+.vbtn:disabled{opacity:.3;cursor:not-allowed;}
 .spinner{
-  width:14px;height:14px;border-radius:50%;
+  width:13px;height:13px;border-radius:50%;
   border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
   animation:spin .75s linear infinite;
 }
 @keyframes spin{to{transform:rotate(360deg);}}
 
 /* Pipeline trace */
-.trace{display:flex;flex-direction:column;gap:3px;}
+.trace{display:flex;flex-direction:column;gap:2px;}
 .ts{
-  display:flex;gap:10px;align-items:flex-start;
-  padding:8px 10px;border-radius:8px;
+  display:flex;gap:9px;align-items:flex-start;
+  padding:7px 9px;border-radius:7px;
   border:1px solid transparent;
 }
 .ts.active{background:var(--abg);border-color:var(--abdr);}
 .ts.done{background:var(--gbg);border-color:var(--gbdr);}
 .ts-ind{
-  width:19px;height:19px;border-radius:50%;
-  border:1.5px solid var(--border2);background:var(--surface2);
+  width:18px;height:18px;border-radius:50%;
+  border:1px solid var(--border2);background:var(--surface2);
   display:flex;align-items:center;justify-content:center;
   flex-shrink:0;margin-top:1px;
-  font-size:8.5px;font-weight:700;color:var(--t4);
+  font-size:8px;font-weight:700;color:var(--t4);
   font-family:'JetBrains Mono',monospace;
 }
-.ts.active .ts-ind{
-  background:var(--accent);border-color:var(--accent);color:#fff;
-  animation:tpulse 1.1s ease-out infinite;
-}
+.ts.active .ts-ind{background:var(--accent);border-color:var(--accent);color:#fff;animation:tpulse 1.1s ease-out infinite;}
 .ts.done .ts-ind{background:var(--green);border-color:var(--green);color:#fff;animation:none;}
 @keyframes tpulse{
-  0%{box-shadow:0 0 0 0 rgba(74,127,232,.35);}
+  0%{box-shadow:0 0 0 0 rgba(37,99,235,.4);}
   70%{box-shadow:0 0 0 6px transparent;}
   100%{box-shadow:0 0 0 0 transparent;}
 }
-.ts-nm{font-size:12.5px;font-weight:600;color:var(--t3);}
+.ts-nm{font-size:12px;font-weight:600;color:var(--t3);}
 .ts.active .ts-nm,.ts.done .ts-nm{color:var(--t1);}
-.ts-d{font-size:11px;color:var(--t4);margin-top:1px;line-height:1.5;}
+.ts-d{font-size:10.5px;color:var(--t4);margin-top:1px;line-height:1.5;}
 .ts.active .ts-d{color:var(--t3);}
 .ts-ms{
   margin-left:auto;flex-shrink:0;
@@ -669,139 +641,141 @@ body,body.light{
 }
 
 /* Result */
-.res{border-radius:11px;padding:16px;margin-top:11px;animation:fadeup .38s cubic-bezier(.16,1,.3,1);}
-@keyframes fadeup{from{opacity:0;transform:translateY(7px);}to{opacity:1;transform:none;}}
-.res.ok{background:var(--gbg);border:1.5px solid var(--gbdr);}
-.res.fail{background:var(--rbg);border:1.5px solid var(--rbdr);}
-.res-hd{display:flex;align-items:center;gap:9px;margin-bottom:7px;}
+.res{border-radius:10px;padding:14px;margin-top:10px;animation:fadeup .35s cubic-bezier(.16,1,.3,1);}
+@keyframes fadeup{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.res.ok{background:var(--gbg);border:1px solid var(--gbdr);}
+.res.fail{background:var(--rbg);border:1px solid var(--rbdr);}
+.res-hd{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
 .res-icon{
-  width:30px;height:30px;border-radius:50%;
+  width:28px;height:28px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
-  font-size:13px;flex-shrink:0;
+  font-size:12px;flex-shrink:0;
 }
 .res.ok .res-icon{background:var(--green);color:#fff;}
 .res.fail .res-icon{background:var(--red);color:#fff;}
 .res-title{
   font-family:'Clash Display',sans-serif;
-  font-size:19px;font-weight:600;letter-spacing:-.01em;
+  font-size:17px;font-weight:600;letter-spacing:-.01em;
 }
 .res.ok .res-title{color:var(--green);}
 .res.fail .res-title{color:var(--red);}
-.res-p{font-size:12px;color:var(--t3);line-height:1.65;margin-bottom:11px;}
-.res-meta{display:flex;gap:18px;}
-.res-mk{font-size:9.5px;font-weight:700;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;}
-.res-mv{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--t1);font-weight:600;}
+.res-p{font-size:11.5px;color:var(--t3);line-height:1.65;margin-bottom:10px;}
+.res-meta{display:flex;gap:16px;}
+.res-mk{font-size:9px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;font-family:'JetBrains Mono',monospace;}
+.res-mv{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--t1);font-weight:700;}
 
 /* Activity */
 .act-row{
-  display:flex;align-items:center;gap:10px;
-  padding:9px 0;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:9px;
+  padding:8px 0;border-bottom:1px solid var(--border);
 }
 .act-row:last-child{border-bottom:none;}
 .act-dot{
-  width:28px;height:28px;border-radius:7px;
+  width:26px;height:26px;border-radius:6px;
   display:flex;align-items:center;justify-content:center;
-  font-size:11px;font-weight:700;flex-shrink:0;
+  font-size:10.5px;font-weight:700;flex-shrink:0;
 }
 .act-dot.ok{background:var(--gbg);color:var(--green);}
 .act-dot.fail{background:var(--rbg);color:var(--red);}
-.act-main{font-size:12.5px;font-weight:500;color:var(--t1);}
-.act-sub{font-size:11px;color:var(--t4);margin-top:2px;}
+.act-main{font-size:12px;font-weight:500;color:var(--t1);font-family:'JetBrains Mono',monospace;}
+.act-sub{font-size:10.5px;color:var(--t4);margin-top:2px;}
 .act-r{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;}
-.badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.03em;}
+.badge{font-size:9.5px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.04em;font-family:'JetBrains Mono',monospace;}
 .badge.ok{background:var(--gbg);color:var(--green);border:1px solid var(--gbdr);}
 .badge.fail{background:var(--rbg);color:var(--red);border:1px solid var(--rbdr);}
 .act-time{font-size:10px;color:var(--t4);font-family:'JetBrains Mono',monospace;}
 
 /* ─── PERFORMANCE ─── */
-.bar-list{display:flex;flex-direction:column;gap:12px;}
+.bar-list{display:flex;flex-direction:column;gap:11px;}
 .bi-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;}
-.bi-l{font-size:12.5px;font-weight:500;color:var(--t2);}
-.bi-v{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--accent2);font-weight:600;}
-.btrack{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
-.bfill{height:100%;border-radius:3px;transition:width 1.3s cubic-bezier(.16,1,.3,1);}
+.bi-l{font-size:12px;font-weight:500;color:var(--t2);}
+.bi-v{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent2);font-weight:700;}
+.btrack{height:4px;background:var(--surface2);border-radius:2px;overflow:hidden;}
+.bfill{height:100%;border-radius:2px;transition:width 1.3s cubic-bezier(.16,1,.3,1);}
 .cm-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px;}
-.cm-cell{border-radius:9px;padding:15px;text-align:center;}
-.cm-v{font-family:'Clash Display',sans-serif;font-size:21px;font-weight:600;}
-.cm-l{font-size:10.5px;font-weight:700;margin-top:3px;opacity:.72;}
-.cm-s{font-size:10px;margin-top:2px;opacity:.5;}
+.cm-cell{border-radius:8px;padding:14px;text-align:center;}
+.cm-v{font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:700;}
+.cm-l{font-size:10px;font-weight:700;margin-top:3px;opacity:.72;}
+.cm-s{font-size:9.5px;margin-top:2px;opacity:.5;}
 
 /* ─── INSIGHTS ─── */
 .is-card{
   background:var(--surface);border:1px solid var(--border);
-  border-radius:13px;padding:19px;
+  border-radius:11px;padding:17px;
 }
 .is-val{
-  font-family:'Clash Display',sans-serif;
-  font-size:29px;font-weight:600;color:var(--t1);letter-spacing:-.02em;
+  font-family:'JetBrains Mono',monospace;
+  font-size:26px;font-weight:700;color:var(--t1);letter-spacing:-.02em;
 }
-.is-lbl{font-size:13px;color:var(--t2);margin-top:4px;font-weight:500;}
+.is-lbl{font-size:12.5px;color:var(--t2);margin-top:4px;font-weight:500;}
 .is-sub{font-size:11px;color:var(--t4);margin-top:2px;}
-.prog{height:4px;background:var(--surface2);border-radius:2px;margin-top:9px;overflow:hidden;}
+.prog{height:3px;background:var(--surface2);border-radius:2px;margin-top:8px;overflow:hidden;}
 .prog-f{height:100%;border-radius:2px;transition:width 1.4s cubic-bezier(.16,1,.3,1);}
 .kv-list{display:flex;flex-direction:column;}
 .kv-row{
   display:flex;justify-content:space-between;align-items:flex-start;
-  padding:9px 0;border-bottom:1px solid var(--border);
+  padding:8px 0;border-bottom:1px solid var(--border);
 }
 .kv-row:last-child{border-bottom:none;}
-.kv-k{font-size:13px;color:var(--t2);font-weight:500;}
-.kv-ks{font-size:11px;color:var(--t4);margin-top:2px;}
-.kv-v{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--accent2);font-weight:600;flex-shrink:0;margin-left:13px;}
+.kv-k{font-size:12.5px;color:var(--t2);font-weight:500;}
+.kv-ks{font-size:10.5px;color:var(--t4);margin-top:2px;}
+.kv-v{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent2);font-weight:700;flex-shrink:0;margin-left:12px;}
 
 /* ─── ABOUT ─── */
-.about-two{display:grid;grid-template-columns:2fr 1fr;gap:13px;margin-bottom:13px;}
-.about-card{background:var(--surface);border:1px solid var(--border);border-radius:15px;padding:30px;}
+.about-two{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px;}
+.about-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px;}
 .about-h{
   font-family:'Clash Display',sans-serif;
-  font-size:23px;font-weight:600;color:var(--t1);letter-spacing:-.02em;margin-bottom:11px;
+  font-size:21px;font-weight:600;color:var(--t1);letter-spacing:-.02em;margin-bottom:10px;
 }
-.about-p{font-size:13.5px;color:var(--t3);line-height:1.84;margin-bottom:19px;}
-.asteps{display:flex;flex-direction:column;gap:9px;}
+.about-p{font-size:13px;color:var(--t3);line-height:1.82;margin-bottom:17px;}
+.asteps{display:flex;flex-direction:column;gap:8px;}
 .astep{
-  display:flex;gap:11px;padding:13px;
-  background:var(--surface2);border-radius:9px;border:1px solid var(--border);
+  display:flex;gap:10px;padding:12px;
+  background:var(--surface2);border-radius:8px;border:1px solid var(--border);
 }
 .astep-n{
-  width:23px;height:23px;border-radius:6px;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
-  color:#fff;font-size:10px;font-weight:700;
+  width:22px;height:22px;border-radius:5px;
+  background:var(--accent);
+  color:#fff;font-size:9.5px;font-weight:700;
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
   font-family:'JetBrains Mono',monospace;
 }
-.astep-t{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:3px;}
-.astep-d{font-size:12px;color:var(--t3);line-height:1.68;}
-.aside{display:flex;flex-direction:column;gap:11px;}
-.aside-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:19px;}
-.aside-t{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:11px;}
-.tagcloud{display:flex;flex-wrap:wrap;gap:6px;}
+.astep-t{font-size:12.5px;font-weight:700;color:var(--t1);margin-bottom:3px;}
+.astep-d{font-size:11.5px;color:var(--t3);line-height:1.65;}
+.aside{display:flex;flex-direction:column;gap:10px;}
+.aside-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:17px;}
+.aside-t{font-size:12.5px;font-weight:700;color:var(--t1);margin-bottom:10px;}
+.tagcloud{display:flex;flex-wrap:wrap;gap:5px;}
 .atag{
-  padding:4px 10px;border-radius:5px;font-size:11px;font-weight:500;
+  padding:3px 9px;border-radius:4px;font-size:10.5px;font-weight:500;
   background:var(--surface2);border:1px solid var(--border);color:var(--t3);
+  font-family:'JetBrains Mono',monospace;
 }
 .cite-card{
   background:var(--surface2);border:1px solid var(--border);
-  border-radius:14px;padding:26px;display:flex;gap:26px;align-items:flex-start;
+  border-radius:13px;padding:24px;display:flex;gap:24px;align-items:flex-start;
 }
 .cite-lbl{
-  font-size:10px;font-weight:700;color:var(--accent2);
-  text-transform:uppercase;letter-spacing:.1em;margin-bottom:9px;
+  font-size:9.5px;font-weight:600;color:var(--accent2);
+  text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;
+  font-family:'JetBrains Mono',monospace;
 }
 .cite-text{font-size:13px;color:var(--t3);line-height:1.8;font-style:italic;}
 .cite-text em{font-style:normal;color:var(--t2);font-weight:600;}
-.cite-nums{display:flex;flex-direction:column;gap:9px;flex-shrink:0;}
+.cite-nums{display:flex;flex-direction:column;gap:8px;flex-shrink:0;}
 .cite-n{
-  padding:13px 18px;border-radius:9px;
-  background:var(--surface);border:1px solid var(--border);text-align:center;min-width:85px;
+  padding:12px 16px;border-radius:8px;
+  background:var(--surface);border:1px solid var(--border);text-align:center;min-width:80px;
 }
-.cite-n-l{font-size:10px;font-weight:700;color:var(--t4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.cite-n-l{font-size:9.5px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;font-family:'JetBrains Mono',monospace;}
 .cite-n-v{
-  font-family:'Clash Display',sans-serif;
-  font-size:18px;font-weight:600;color:var(--accent2);
+  font-family:'JetBrains Mono',monospace;
+  font-size:16px;font-weight:700;color:var(--accent2);
 }
 
 /* Utilities */
-.fade-in{animation:fadeup .38s cubic-bezier(.16,1,.3,1) both;}
+.fade-in{animation:fadeup .35s cubic-bezier(.16,1,.3,1) both;}
 `;
 
 /* ─── LOGO SVG ─── */
@@ -816,9 +790,7 @@ const VeinIcon = ({ size = 14, color = "white" }) => (
 
 /* ─── NAV ─── */
 function Nav({ theme, toggleTheme, page, goTo, dashTab, setDashTab, user, setUser }) {
-  const USER_TABS  = ["verify", "enroll", "performance", "insights", "about"];
-  const ADMIN_TABS = ["verify", "enroll", "performance", "insights", "about", "admin"];
-  const TABS = (user?.role === "admin") ? ADMIN_TABS : USER_TABS;
+  const TABS = ["verify", "enroll", "performance", "insights", "about"];
   return (
     <nav className="nav">
       {page !== "landing" && (
@@ -835,9 +807,8 @@ function Nav({ theme, toggleTheme, page, goTo, dashTab, setDashTab, user, setUse
           <div className="nav-gap" />
           <div className="nav-tabs">
             {TABS.map(t => (
-              <button key={t} className={`ntab${dashTab === t ? " on" : ""}`} onClick={() => setDashTab(t)}
-                style={t === "admin" ? {color: dashTab === "admin" ? "var(--accent2)" : "var(--amber)"} : {}}>
-                {t === "admin" ? "⚙ Admin" : t.charAt(0).toUpperCase() + t.slice(1)}
+              <button key={t} className={`ntab${dashTab === t ? " on" : ""}`} onClick={() => setDashTab(t)}>
+                {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
           </div>
@@ -850,10 +821,7 @@ function Nav({ theme, toggleTheme, page, goTo, dashTab, setDashTab, user, setUse
         </button>
         {user ? (
           <>
-            <span style={{ fontSize: 12, color: "var(--t3)", fontWeight: 500 }}>
-              {user.name}
-              {user.role === "admin" && <span style={{color:"var(--amber)",marginLeft:5,fontSize:10,fontWeight:700}}>ADMIN</span>}
-            </span>
+            <span style={{ fontSize: 12, color: "var(--t3)", fontWeight: 500 }}>{user.name}</span>
             <button className="btn-outline" onClick={() => { setUser(null); goTo("landing"); }}>Sign out</button>
           </>
         ) : (
@@ -883,10 +851,7 @@ function Landing({ goTo }) {
                 <span className="live-dot" /><span>Live</span>
               </span>
             </div>
-            <h1 className="hero-h display" style={{fontSize:"clamp(48px,6vw,80px)",letterSpacing:"-.04em",marginBottom:10}}>
-              ENCASE<b style={{color:"var(--accent2)"}}>-FV</b>
-            </h1>
-            <div style={{fontSize:12,fontWeight:600,letterSpacing:".01em",marginBottom:14,lineHeight:1.65,maxWidth:490}}>
+            <div style={{fontSize:12,fontWeight:600,letterSpacing:".01em",marginBottom:12,lineHeight:1.6,maxWidth:480}}>
               <span style={{color:"var(--accent2)",fontWeight:800}}>E</span><span style={{color:"var(--t2)"}}>ncrypted </span>
               <span style={{color:"var(--accent2)",fontWeight:800}}>C</span><span style={{color:"var(--t2)"}}>ancelable </span>
               <span style={{color:"var(--accent2)",fontWeight:800}}>A</span><span style={{color:"var(--t2)"}}>uthentication </span>
@@ -895,6 +860,10 @@ function Landing({ goTo }) {
               <span style={{color:"var(--accent2)",fontWeight:800}}>F</span><span style={{color:"var(--t2)"}}>inger </span>
               <span style={{color:"var(--accent2)",fontWeight:800}}>V</span><span style={{color:"var(--t2)"}}>ein</span>
             </div>
+            <h1 className="hero-h display">
+              Biometrics you can<br />
+              <em>revoke and reissue.</em>
+            </h1>
             <p className="hero-p">
               Finger vein authentication with per-identity random projection and CKKS homomorphic encryption.
               Verification is computed entirely in the ciphertext domain — your biometric template is never exposed in plaintext.
@@ -903,7 +872,7 @@ function Landing({ goTo }) {
               <button className="cta-p" onClick={() => goTo("signup")}>Get Started</button>
               <button className="cta-s" onClick={() => goTo("dashboard")}>View Demo</button>
             </div>
-            <p style={{fontSize:13,color:"var(--t4)",marginBottom:22,lineHeight:1.65,maxWidth:420}}>
+            <p style={{fontSize:12.5,color:"var(--t4)",marginBottom:22,lineHeight:1.6,maxWidth:400}}>
               The only biometric system where verification happens entirely inside an encryption — your enrolled template is mathematically impossible to reverse-engineer, even if the database is breached.
             </p>
             <div className="hero-stats">
@@ -920,33 +889,28 @@ function Landing({ goTo }) {
             </div>
           </div>
           <div className="hero-r">
-            <div className="fcard" onClick={() => goTo("dashboard")} style={{flex:1}}>
+            <div className="fcard" onClick={() => goTo("hardware")}>
               <div className="fc-top">
                 <div>
-                  <div className="fc-lbl">Live Demo</div>
+                  <div className="fc-lbl">Physical Layer</div>
+                  <div className="fc-ttl display">Hardware Stack</div>
+                </div>
+                <div className="fc-arr">→</div>
+              </div>
+              <div className="fc-desc">NIR camera, 850nm LED illumination, Jetson Orin edge compute, and TPM 2.0 secure key storage — the physical substrate for production deployment.</div>
+              <div className="fc-tags">
+                {["FLIR Blackfly S", "Thorlabs 850nm", "Jetson Orin", "TPM 2.0"].map(c => <span key={c} className="chip">{c}</span>)}
+              </div>
+            </div>
+            <div className="fcard" onClick={() => goTo("dashboard")}>
+              <div className="fc-top">
+                <div>
+                  <div className="fc-lbl">Software Demo</div>
                   <div className="fc-ttl display">Auth Dashboard</div>
                 </div>
                 <div className="fc-arr">→</div>
               </div>
-              <div className="fc-desc">
-                Run the full ENCASE-FV pipeline live — upload a finger vein image, enter an identity ID, and watch the 7-stage CKKS verification trace in real time.
-              </div>
-              <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
-                {[
-                  {icon:"🔬", label:"CNN Feature Extraction", sub:"800D L2-normalised embedding"},
-                  {icon:"🔀", label:"Random Projection", sub:"Per-identity cancelable 256D space"},
-                  {icon:"📐", label:"MDS Compression", sub:"Nyström extension → 32D metric"},
-                  {icon:"🔐", label:"CKKS Homomorphic Match", sub:"Distance in ciphertext domain only"},
-                ].map((s,i)=>(
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 11px",background:"var(--surface2)",borderRadius:8,border:"1px solid var(--border)"}}>
-                    <span style={{fontSize:14}}>{s.icon}</span>
-                    <div>
-                      <div style={{fontSize:11.5,fontWeight:600,color:"var(--t1)"}}>{s.label}</div>
-                      <div style={{fontSize:10.5,color:"var(--t4)",marginTop:1}}>{s.sub}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <div className="fc-desc">Live CKKS verification pipeline with encrypted-domain distance computation, ROC analysis, and the complete 4-stage cryptographic trace.</div>
               <div className="fc-tags">
                 {["PyTorch CNN", "TenSEAL CKKS", "800D Embeddings", "32D Encrypted"].map(c => <span key={c} className="chip">{c}</span>)}
               </div>
@@ -959,9 +923,9 @@ function Landing({ goTo }) {
           {[
             { v: <><span>99.9947</span>%</>, l: "Verification Accuracy", tip: "Out of 1,200 genuine test pairs, the system correctly accepted 99.9947% — only 38 near-boundary impostor pairs were incorrectly accepted." },
             { v: <><span>38</span> / 1,200</>, l: "False Accepts vs Genuine Pairs", tip: "38 impostor pairs were incorrectly accepted out of 718,800 total impostor attempts. All 38 involve biologically adjacent fingers from the same subject." },
-            { v: <><span>0</span> / 1,200</>, l: "False Rejects", tip: "Zero genuine users were ever blocked. Every enrolled identity was accepted correctly across all 1,200 genuine test probes — FRR is exactly 0.00%." },
-            { v: <><span>48</span>×</>, l: "Genuine/Impostor Separation", tip: "Genuine pairs average distance 2.96 vs impostor pairs at 142.2 — a 48× gap. This is why ROC AUC is exactly 1.0000 with zero score overlap at any threshold." },
-            { v: <><span>32</span>D CKKS</>, l: "Encrypted Template Dimension", tip: "Your finger vein compresses to a 32-number vector via MDS, encrypted with CKKS. Matching happens on this ciphertext — the plaintext is never exposed, even during verification." },
+            { v: <><span>0</span> / 1,200</>, l: "False Rejects", tip: "Zero genuine users were ever blocked. Every enrolled identity was accepted correctly across all test probes — false reject rate is 0.00%." },
+            { v: <><span>48</span>×</>, l: "Genuine/Impostor Separation", tip: "The average distance between genuine pairs is 2.96 vs 142.2 for impostor pairs — a 48× gap. This is why the ROC AUC is exactly 1.0000 with no score overlap." },
+            { v: <><span>32</span>D CKKS</>, l: "Encrypted Template Dimension", tip: "Your finger vein is compressed to a 32-number vector using MDS, then encrypted using CKKS homomorphic encryption. Matching happens on this encrypted vector — the plaintext is never exposed." },
           ].map((s, i) => (
             <div key={i} className="sbi" style={{position:"relative",cursor:"default"}}
               onMouseEnter={e=>{const t=e.currentTarget.querySelector(".sbi-tip");if(t)t.style.opacity="1";}}
@@ -974,45 +938,27 @@ function Landing({ goTo }) {
                 padding:"10px 13px",fontSize:11.5,color:"var(--t2)",lineHeight:1.65,
                 width:220,zIndex:99,boxShadow:"var(--sh2)",
                 opacity:0,pointerEvents:"none",
-                transition:"opacity .18s ease",textAlign:"left",fontWeight:400
+                transition:"opacity .2s ease",textAlign:"left",fontWeight:400
               }}>{s.tip}</div>
             </div>
           ))}
         </div>
       </div>
-      <div style={{background:"var(--surface)",borderTop:"1px solid var(--border)",borderBottom:"1px solid var(--border)",padding:"40px 0"}}>
+      <div style={{background:"var(--bg2)",borderTop:"1px solid var(--border)",padding:"42px 0"}}>
         <div style={{maxWidth:1160,margin:"0 auto",padding:"0 40px"}}>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16}}>
             {[
               { icon:"👁", title:"Why Finger Vein?", desc:"Unlike fingerprints or face, finger veins are subcutaneous — invisible to the naked eye and impossible to photograph or lift from surfaces. They cannot be forged, replicated, or stolen without physical access to a live finger." },
               { icon:"🔒", title:"Why Cancelable?", desc:"If a fingerprint database is breached, those fingerprints are compromised forever. ENCASE-FV uses per-identity random projection — change the projection seed to instantly revoke and re-enroll any identity without new hardware." },
               { icon:"🔐", title:"Why Homomorphic?", desc:"Traditional systems decrypt templates to compare them — creating a window of exposure. CKKS homomorphic encryption lets us compute the matching distance entirely inside the ciphertext. The enrolled template is never decrypted." },
             ].map((c,i)=>(
-              <div key={i} style={{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:14,padding:22}}>
-                <div style={{fontSize:20,marginBottom:10}}>{c.icon}</div>
+              <div key={i} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:22}}>
+                <div style={{fontSize:22,marginBottom:10}}>{c.icon}</div>
                 <div style={{fontFamily:"'Clash Display',sans-serif",fontSize:15,fontWeight:600,color:"var(--t1)",marginBottom:8,letterSpacing:"-.01em"}}>{c.title}</div>
                 <div style={{fontSize:13,color:"var(--t3)",lineHeight:1.78}}>{c.desc}</div>
               </div>
             ))}
           </div>
-        </div>
-      </div>
-      <div style={{background:"var(--bg2)",borderTop:"1px solid var(--border)",padding:"32px 0",textAlign:"center"}}>
-        <div style={{maxWidth:480,margin:"0 auto",padding:"0 40px"}}>
-          <div style={{fontSize:11,fontWeight:700,color:"var(--t4)",letterSpacing:".1em",textTransform:"uppercase",marginBottom:10,fontFamily:"'JetBrains Mono',monospace"}}>
-            Physical Deployment
-          </div>
-          <div style={{fontSize:14,color:"var(--t2)",marginBottom:18,lineHeight:1.7}}>
-            Planning to deploy ENCASE-FV with NIR hardware? View the component list, integration specs, and step-by-step enrollment guide.
-          </div>
-          <button onClick={() => goTo("hardware")} style={{
-            padding:"10px 24px",borderRadius:8,fontSize:13,fontWeight:600,
-            color:"var(--t2)",cursor:"pointer",
-            border:"1px solid var(--border2)",background:"transparent",
-            fontFamily:"'Satoshi',sans-serif",display:"inline-flex",alignItems:"center",gap:8
-          }}>
-            Set Up Your Device →
-          </button>
         </div>
       </div>
     </div>
@@ -1101,23 +1047,22 @@ function Hardware() {
           </div>
         </div>
         <div className="sec-lbl">Hardware Enrollment Guide</div>
-        <div className="int-card" style={{marginBottom:13}}>
-          <div className="int-hd">
-            <div className="int-hd-t">Physical Setup for Enrollment</div>
-            <div className="int-hd-s">Connect hardware and enroll finger vein identities step by step</div>
+        <div className="card" style={{marginBottom:13}}>
+          <div className="card-hd">
+            <div><div className="card-ht">Physical Setup for Enrollment</div><div className="card-hs">Connect hardware and enroll finger vein identities</div></div>
           </div>
-          <div style={{padding:"16px 20px"}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div className="card-bd">
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11,marginBottom:14}}>
               {[
-                {n:1,t:"Connect Camera",d:"Plug FLIR Blackfly S into Jetson Orin Nano via USB 3.1. Install Spinnaker SDK. Verify: python -c 'import PySpin; print(PySpin.System.GetInstance().GetCameras().GetSize())'"},
-                {n:2,t:"Mount LED",d:"Position Thorlabs M850L3 at 850nm, ~15cm from finger bed. Drive at 1000–1200mA. Use diffuser to reduce hotspots for even NIR illumination."},
-                {n:3,t:"Load Pipeline",d:"On Jetson: clone repo, pip install requirements, load artifacts from Drive. Run: uvicorn main:app --host 0.0.0.0 --port 8000"},
-                {n:4,t:"Capture & Enroll",d:"POST to /enroll with identity_id, finger position, and 8 captured images. Pipeline: CNN → RP → MDS → CKKS → MongoDB."},
-                {n:5,t:"Verify",d:"POST to /verify with identity_id and a new probe image. Returns accepted/rejected with decrypted distance scalar and per-stage timings."},
-                {n:6,t:"Revoke & Re-enroll",d:"Delete the MongoDB document for that identity_id. Assign a new ID and re-enroll. The old encrypted template is irrecoverable — cancelability guaranteed."},
+                {n:1,t:"Connect Camera",d:"Plug FLIR Blackfly S into Jetson Orin Nano via USB 3.1. Install Spinnaker SDK. Verify with: python -c 'import PySpin; print(PySpin.System.GetInstance().GetCameras().GetSize())'"},
+                {n:2,t:"Mount LED",d:"Position Thorlabs M850L3 at 850nm, ~15cm from finger bed. Drive at 1000–1200mA for optimal subcutaneous penetration. Use diffuser to reduce hotspots."},
+                {n:3,t:"Load ENCASE-FV Pipeline",d:"On Jetson: git clone your repo, pip install requirements, load artifacts from Google Drive. Run: python main.py to start the FastAPI server on port 8000."},
+                {n:4,t:"Capture & Enroll",d:"POST to /enroll with identity_id, finger position, and 8 captured images. Pipeline runs CNN → RP → MDS → CKKS and stores encrypted template in MongoDB."},
+                {n:5,t:"Verify",d:"POST to /verify with identity_id and a new probe image. The system returns accepted/rejected with the decrypted distance scalar and per-stage timings."},
+                {n:6,t:"Revoke & Re-enroll",d:"Delete the MongoDB document for that identity_id. Assign a new ID and re-enroll. The old encrypted template is irrecoverable — cancelability is guaranteed."},
               ].map((s,i)=>(
-                <div key={i} style={{display:"flex",gap:10,padding:"11px 13px",background:"var(--surface2)",borderRadius:9,border:"1px solid var(--border)"}}>
-                  <div style={{width:21,height:21,borderRadius:5,background:"var(--accent2)",color:"#fff",fontSize:9.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"'JetBrains Mono',monospace"}}>{s.n}</div>
+                <div key={i} style={{display:"flex",gap:11,padding:"12px 14px",background:"var(--surface2)",borderRadius:9,border:"1px solid var(--border)"}}>
+                  <div style={{width:22,height:22,borderRadius:5,background:"linear-gradient(135deg,var(--accent),var(--accent2))",color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{s.n}</div>
                   <div><div style={{fontSize:12.5,fontWeight:700,color:"var(--t1)",marginBottom:3}}>{s.t}</div><div style={{fontSize:11.5,color:"var(--t3)",lineHeight:1.65}}>{s.d}</div></div>
                 </div>
               ))}
@@ -1148,18 +1093,17 @@ function Hardware() {
 /* ─── AUTH ─── */
 function Auth({ mode, goTo, setUser }) {
   const isLogin = mode === "login";
-  const [step, setStep]           = useState("form");
-  const [form, setForm]           = useState({ name: "", email: "" });
-  const [otp, setOtp]             = useState(["","","","","",""]);
-  const [loading, setLoading]     = useState(false);
+  const [step, setStep] = useState("form");
+  const [form, setForm] = useState({ name: "", email: "", phone: "" });
+  const [otp, setOtp] = useState(["","","","","",""]);
+  const [loading, setLoading] = useState(false);
   const [fieldError, setFieldError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
-  const [showAdminReq, setShowAdminReq] = useState(false);
   const otpRefs = useRef([]);
 
   const validateForm = () => {
     if (!isLogin && !form.name.trim()) return "Full name is required.";
     if (!form.email.trim() || !form.email.includes("@")) return "A valid email address is required.";
+    if (!form.phone.trim()) return "Phone number is required.";
     return "";
   };
 
@@ -1167,47 +1111,22 @@ function Auth({ mode, goTo, setUser }) {
     if (step === "form") {
       const err = validateForm();
       if (err) { setFieldError(err); return; }
-      setFieldError(""); setLoading(true);
-      try {
-        const fd = new FormData();
-        fd.append("email", form.email.trim());
-        fd.append("name",  form.name.trim());
-        fd.append("mode",  mode);
-        const res = await fetch(`${API_BASE}/send-otp`, { method: "POST", body: fd });
-        const data = await res.json();
-        if (!res.ok) { setFieldError(data.detail || "Failed to send OTP."); setLoading(false); return; }
-        setStep("otp");
-      } catch(e) { setFieldError("Cannot reach server. Check your connection."); }
+      setFieldError("");
+      setLoading(true);
+      await new Promise(r => setTimeout(r, 900)); // simulate sending OTP
       setLoading(false);
+      setStep("otp");
       return;
     }
-    // OTP verify
+    // OTP step — simulate verification
     setLoading(true);
-    try {
-      const fd = new FormData();
-      fd.append("email", form.email.trim());
-      fd.append("code",  otp.join(""));
-      const res = await fetch(`${API_BASE}/verify-otp`, { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) { setFieldError(data.detail || "Incorrect code."); setLoading(false); return; }
-      setUser(data.user);
-      goTo("dashboard");
-    } catch(e) { setFieldError("Cannot reach server."); }
+    await new Promise(r => setTimeout(r, 700));
     setLoading(false);
-  };
-
-  const handleAdminRequest = async () => {
-    setLoading(true); setFieldError("");
-    try {
-      const fd = new FormData();
-      fd.append("email", form.email.trim());
-      fd.append("name",  form.name.trim());
-      const res = await fetch(`${API_BASE}/admin/request`, { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) { setFieldError(data.detail || "Request failed."); }
-      else { setSuccessMsg("Request sent! An admin will review it and email you."); setShowAdminReq(false); }
-    } catch(e) { setFieldError("Cannot reach server."); }
-    setLoading(false);
+    const name = isLogin
+      ? (form.email.split("@")[0].replace(/[^a-zA-Z]/g, " ") || "Researcher")
+      : form.name;
+    setUser({ name, email: form.email });
+    goTo("dashboard");
   };
 
   const handleOtp = (i, v) => {
@@ -1253,24 +1172,17 @@ function Auth({ mode, goTo, setUser }) {
       </div>
       <div className="auth-r">
         <div className="auth-form fade-in">
-          {successMsg ? (
-            <div style={{textAlign:"center",padding:"20px 0"}}>
-              <div style={{fontSize:36,marginBottom:14}}>✓</div>
-              <div className="auth-h display" style={{color:"var(--green)"}}>Request Sent</div>
-              <p style={{color:"var(--t3)",fontSize:13,marginTop:10,lineHeight:1.7}}>{successMsg}</p>
-              <button className="auth-btn" style={{marginTop:20}} onClick={() => goTo("login")}>Back to Sign In</button>
-            </div>
-          ) : step === "form" ? (
+          {step === "form" ? (
             <>
               <div className="auth-h display">{isLogin ? "Sign in" : "Create account"}</div>
               <div className="auth-sub">
                 {isLogin
-                  ? <span className="auth-link" onClick={() => goTo("signup")}>Don't have an account? Sign up</span>
-                  : <span className="auth-link" onClick={() => goTo("login")}>Already have an account? Sign in</span>
+                  ? <><span className="auth-link" onClick={() => goTo("signup")}>Don't have an account? Sign up</span></>
+                  : <><span className="auth-link" onClick={() => goTo("login")}>Already have an account? Sign in</span></>
                 }
               </div>
               {fieldError && (
-                <div style={{padding:"9px 12px",marginBottom:12,borderRadius:7,background:"var(--rbg)",border:"1px solid var(--rbdr)",fontSize:12,color:"var(--red)"}}>
+                <div style={{ padding:"9px 12px", marginBottom: 12, borderRadius: 7, background: "var(--rbg)", border: "1px solid var(--rbdr)", fontSize: 12, color: "var(--red)" }}>
                   {fieldError}
                 </div>
               )}
@@ -1278,50 +1190,25 @@ function Auth({ mode, goTo, setUser }) {
                 <>
                   <div className="flbl">Full Name</div>
                   <input className="finp" placeholder="Dr. Jane Smith" value={form.name}
-                    onChange={e => setForm({...form, name: e.target.value})} />
+                    onChange={e => setForm({ ...form, name: e.target.value })} />
                 </>
               )}
               <div className="flbl">Email Address</div>
               <input className="finp" type="email" placeholder="you@university.edu" value={form.email}
-                onChange={e => setForm({...form, email: e.target.value})} />
+                onChange={e => setForm({ ...form, email: e.target.value })} />
+              <div className="flbl">Phone Number</div>
+              <input className="finp" type="tel" placeholder="+1 (555) 000-0000" value={form.phone}
+                onChange={e => setForm({ ...form, phone: e.target.value })} />
               <button className="auth-btn" onClick={handleSubmit} disabled={loading}>
                 {loading ? <><span className="spinner" style={{display:"inline-block"}} /> Sending OTP...</> : (isLogin ? "Send OTP" : "Continue")}
               </button>
-              {isLogin && (
-                <div style={{marginTop:14,textAlign:"center"}}>
-                  <span style={{fontSize:12,color:"var(--t4)"}}>Need admin access? </span>
-                  <span className="auth-link" style={{fontSize:12}} onClick={() => setShowAdminReq(true)}>Request it here</span>
-                </div>
-              )}
-              {showAdminReq && (
-                <div style={{marginTop:16,padding:"14px 16px",background:"var(--surface2)",borderRadius:10,border:"1px solid var(--border2)"}}>
-                  <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:8}}>Request Admin Access</div>
-                  <div className="flbl">Your Email</div>
-                  <input className="finp" type="email" placeholder="you@university.edu" value={form.email}
-                    onChange={e => setForm({...form, email: e.target.value})} style={{marginBottom:8}} />
-                  <div className="flbl">Your Name</div>
-                  <input className="finp" placeholder="Dr. Jane Smith" value={form.name}
-                    onChange={e => setForm({...form, name: e.target.value})} style={{marginBottom:10}} />
-                  <div style={{display:"flex",gap:8}}>
-                    <button className="auth-btn" style={{flex:1,padding:"9px"}} onClick={handleAdminRequest} disabled={loading}>
-                      {loading ? "Sending..." : "Send Request"}
-                    </button>
-                    <button className="btn-outline" style={{padding:"9px 14px"}} onClick={() => setShowAdminReq(false)}>Cancel</button>
-                  </div>
-                </div>
-              )}
             </>
           ) : (
             <>
               <div className="auth-h display">Verify your identity</div>
               <div className="auth-sub">
-                We sent a 6-digit code to <strong style={{color:"var(--t1)"}}>{form.email}</strong>
+                We sent a 6-digit code to <strong style={{ color: "var(--t1)" }}>{form.phone}</strong>
               </div>
-              {fieldError && (
-                <div style={{padding:"9px 12px",marginBottom:12,borderRadius:7,background:"var(--rbg)",border:"1px solid var(--rbdr)",fontSize:12,color:"var(--red)"}}>
-                  {fieldError}
-                </div>
-              )}
               <div className="otp-row" onPaste={handlePaste}>
                 {otp.map((v, i) => (
                   <input key={i} ref={el => otpRefs.current[i] = el}
@@ -1331,13 +1218,16 @@ function Auth({ mode, goTo, setUser }) {
                     onKeyDown={e => handleOtpKey(i, e)} />
                 ))}
               </div>
+              <div className="auth-note">
+                This is a demo — any 6-digit code will be accepted. In production, this would be a real SMS OTP via your carrier.
+              </div>
               <button className="auth-btn" onClick={handleSubmit}
                 disabled={otp.join("").length < 6 || loading}>
                 {loading ? <><span className="spinner" style={{display:"inline-block"}} /> Verifying...</> : `Verify & ${isLogin ? "Sign in" : "Create account"}`}
               </button>
               <div className="divider">or</div>
-              <button className="btn-outline" style={{width:"100%",textAlign:"center",padding:"9px"}}
-                onClick={() => { setStep("form"); setOtp(["","","","","",""]); setFieldError(""); }}>
+              <button className="btn-outline" style={{ width: "100%", textAlign: "center", padding: "9px" }}
+                onClick={() => { setStep("form"); setOtp(["","","","","",""]); }}>
                 ← Back
               </button>
             </>
@@ -1369,14 +1259,6 @@ function Dashboard({ tab, setTab, user }) {
         {tab === "performance" && <PerformanceTab />}
         {tab === "insights"    && <InsightsTab />}
         {tab === "about"       && <AboutTab />}
-        {tab === "admin"       && user?.role === "admin" && <AdminTab />}
-        {tab === "admin"       && user?.role !== "admin" && (
-          <div style={{textAlign:"center",padding:"60px 20px"}}>
-            <div style={{fontSize:32,marginBottom:12}}>🔒</div>
-            <div style={{fontSize:16,fontWeight:700,color:"var(--t1)"}}>Admin access required</div>
-            <div style={{fontSize:13,color:"var(--t3)",marginTop:6}}>You do not have permission to view this tab.</div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -1653,67 +1535,14 @@ function VerifyTab() {
 
 
 /* ─── ENROLL TAB ─── */
-function EnrollImageUpload() {
-  const [images, setImages] = React.useState([]);
-  const fileRef = React.useRef();
-  const handleFiles = (files) => {
-    const imgs = Array.from(files).filter(f => f.type.startsWith("image/")).slice(0, 8);
-    const readers = imgs.map(f => new Promise(res => {
-      const r = new FileReader();
-      r.onload = e => res({ name: f.name, src: e.target.result });
-      r.readAsDataURL(f);
-    }));
-    Promise.all(readers).then(results => setImages(prev => [...prev, ...results].slice(0, 8)));
-  };
-  const removeImg = (i) => setImages(prev => prev.filter((_,idx) => idx !== i));
-  return (
-    <div>
-      {images.length > 0 ? (
-        <div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:8}}>
-            {images.map((img,i) => (
-              <div key={i} style={{position:"relative",borderRadius:7,overflow:"hidden",border:"1px solid var(--border2)",background:"var(--surface3)"}}>
-                <img src={img.src} alt={img.name} style={{width:"100%",height:52,objectFit:"cover",display:"block"}}/>
-                <div onClick={()=>removeImg(i)} style={{position:"absolute",top:3,right:3,width:16,height:16,borderRadius:"50%",background:"rgba(0,0,0,.6)",color:"#fff",fontSize:9,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>✕</div>
-              </div>
-            ))}
-          </div>
-          <div style={{display:"flex",gap:7,alignItems:"center"}}>
-            <span style={{fontSize:11,color:"var(--t4)"}}>{images.length}/8 images</span>
-            {images.length < 8 && (
-              <button onClick={() => fileRef.current?.click()} style={{fontSize:11,fontWeight:600,color:"var(--accent2)",background:"var(--abg)",border:"1px solid var(--abdr)",borderRadius:5,padding:"3px 9px",cursor:"pointer"}}>
-                + Upload More
-              </button>
-            )}
-            <button onClick={() => setImages([])} style={{fontSize:11,color:"var(--t4)",background:"transparent",border:"none",cursor:"pointer",marginLeft:"auto"}}>
-              Clear all
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div
-          onClick={() => fileRef.current?.click()}
-          onDragOver={e => e.preventDefault()}
-          onDrop={e => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
-          style={{border:"1.5px dashed var(--border2)",borderRadius:10,padding:"22px 14px",textAlign:"center",background:"var(--surface2)",cursor:"pointer"}}
-        >
-          <div style={{fontSize:13,color:"var(--t3)",marginBottom:4}}>Drop 8 NIR finger vein images</div>
-          <div style={{fontSize:11,color:"var(--t4)"}}>BMP / PNG · 60×120px ROI · FLIR camera</div>
-        </div>
-      )}
-      <input ref={fileRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={e => handleFiles(e.target.files)}/>
-    </div>
-  );
-}
-
 function EnrollTab() {
   const STEPS = [
     { n:1, title:"Position Finger", desc:"Place your finger on the NIR illuminated capture bed. Ensure the finger is flat, centered, and steady. The FLIR Blackfly S camera captures at 60×120px ROI." },
     { n:2, title:"Capture 8 Images", desc:"The system captures 8 images per finger across slight positional variations. This enrollment set trains the identity-specific random projection matrix." },
-    { n:3, title:"CNN Feature Extraction", desc:"Each image passes through the 4-layer convolutional network producing an 800-dimensional L2-normalised embedding vector." },
+    { n:3, title:"CNN Feature Extraction", desc:"Each image passes through the 4-layer convolutional network producing a 800-dimensional L2-normalised embedding vector." },
     { n:4, title:"Random Projection", desc:"A per-identity QR-orthonormal matrix (seeded from your identity ID) projects 800D → 256D cancelable space. The seed is your revocation key." },
-    { n:5, title:"MDS Compression", desc:"Classical MDS with Nyström extension compresses 256D → 32D metric space, preserving inter-identity distances for accurate matching." },
-    { n:6, title:"CKKS Encryption & Storage", desc:"The 32D template is encrypted under CKKS (poly_mod_degree 8192) and stored in MongoDB. The plaintext template is never persisted anywhere." },
+    { n:5, title:"MDS Compression", desc:"Classical MDS with Nyström extension compresses 256D → 32D metric space, preserving inter-identity distances." },
+    { n:6, title:"CKKS Encryption & Storage", desc:"The 32D template is encrypted under CKKS (poly_mod_degree 8192) and stored in MongoDB. The plaintext template is never persisted." },
   ];
   return (
     <div className="fade-in">
@@ -1723,47 +1552,56 @@ function EnrollTab() {
             <div className="card-ht">Enroll New Identity</div>
             <div className="card-hs">Register a finger vein template into the ENCASE-FV system</div>
           </div>
-          <div style={{fontSize:10,fontWeight:700,background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.2)",color:"var(--amber)",padding:"3px 9px",borderRadius:5,fontFamily:"'JetBrains Mono',monospace"}}>
+          <div style={{fontSize:10,fontWeight:700,background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.2)",color:"var(--amber)",padding:"3px 9px",borderRadius:5}}>
             HARDWARE REQUIRED
           </div>
         </div>
         <div className="card-bd">
-          <div style={{background:"var(--abg)",border:"1px solid var(--abdr)",borderRadius:10,padding:"13px 16px",marginBottom:16,fontSize:13,color:"var(--accent2)",lineHeight:1.7}}>
-            <strong>Software demo mode:</strong> Full enrollment requires the FLIR Blackfly S camera and 850nm NIR illumination hardware. The form below shows the enrollment workflow — connect hardware to submit real templates.
+          <div style={{background:"var(--abg)",border:"1px solid var(--abdr)",borderRadius:10,padding:"14px 17px",marginBottom:16,fontSize:13,color:"var(--accent2)",lineHeight:1.7}}>
+            <strong>Software-only demo mode:</strong> Full enrollment requires the FLIR Blackfly S camera and 850nm NIR illumination hardware connected to a Jetson Orin Nano running the ENCASE-FV capture pipeline. The form below shows the enrollment workflow — connect hardware to submit real templates.
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11,marginBottom:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11,marginBottom:16}}>
             <div>
               <div className="vlbl">Identity ID <span style={{color:"var(--red)"}}>*</span></div>
-              <input className="vinp" placeholder="0 – 599 (new identity)" disabled style={{opacity:.45,cursor:"not-allowed"}}/>
+              <input className="vinp" placeholder="0 – 599 (new identity)" disabled style={{opacity:.5,cursor:"not-allowed"}}/>
               <div style={{fontSize:11,color:"var(--t4)",marginBottom:12}}>Assign a unique integer ID for this person.</div>
               <div className="vlbl">Finger Position</div>
-              <select className="vinp" disabled style={{opacity:.45,cursor:"not-allowed"}}>
+              <select className="vinp" disabled style={{opacity:.5,cursor:"not-allowed"}}>
                 {["Left Index","Left Middle","Left Ring","Right Index","Right Middle","Right Ring"].map(f=><option key={f}>{f}</option>)}
               </select>
             </div>
             <div>
               <div className="vlbl">Enrollment Images (8 required)</div>
-              <EnrollImageUpload />
+              <div style={{border:"2px dashed var(--border2)",borderRadius:10,padding:"20px 14px",textAlign:"center",background:"var(--surface2)",opacity:.5}}>
+                <div style={{fontSize:13,color:"var(--t3)",marginBottom:4}}>Drop 8 NIR finger vein images</div>
+                <div style={{fontSize:11,color:"var(--t4)"}}>BMP / PNG · 60×120px ROI · captured via FLIR camera</div>
+              </div>
             </div>
           </div>
-          <button className="vbtn" disabled style={{opacity:.3,cursor:"not-allowed"}}>
+          <button className="vbtn" disabled style={{opacity:.35,cursor:"not-allowed",marginBottom:0}}>
             Enroll Identity — Hardware Required
           </button>
         </div>
       </div>
+
       <div className="card">
-        <div className="card-hd"><div><div className="card-ht">Enrollment Pipeline</div><div className="card-hs">6-stage process from capture to encrypted storage</div></div></div>
+        <div className="card-hd">
+          <div><div className="card-ht">Hardware Enrollment Guide</div><div className="card-hs">Step-by-step setup for physical enrollment</div></div>
+        </div>
         <div className="card-bd">
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{display:"flex",flexDirection:"column",gap:9}}>
             {STEPS.map((s,i)=>(
-              <div key={i} style={{display:"flex",gap:11,padding:"11px 13px",background:"var(--surface2)",borderRadius:9,border:"1px solid var(--border)"}}>
-                <div style={{width:22,height:22,borderRadius:6,background:"var(--accent2)",color:"#fff",fontSize:9.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"'JetBrains Mono',monospace"}}>{s.n}</div>
-                <div><div style={{fontSize:12.5,fontWeight:700,color:"var(--t1)",marginBottom:3}}>{s.title}</div><div style={{fontSize:12,color:"var(--t3)",lineHeight:1.7}}>{s.desc}</div></div>
+              <div key={i} style={{display:"flex",gap:12,padding:"12px 14px",background:"var(--surface2)",borderRadius:9,border:"1px solid var(--border)"}}>
+                <div style={{width:24,height:24,borderRadius:6,background:"linear-gradient(135deg,var(--accent),var(--accent2))",color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"'JetBrains Mono',monospace"}}>{s.n}</div>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:3}}>{s.title}</div>
+                  <div style={{fontSize:12,color:"var(--t3)",lineHeight:1.7}}>{s.desc}</div>
+                </div>
               </div>
             ))}
           </div>
-          <div style={{marginTop:13,padding:"12px 15px",background:"var(--gbg)",border:"1px solid var(--gbdr)",borderRadius:9,fontSize:12,color:"var(--t3)",lineHeight:1.7}}>
-            <strong style={{color:"var(--green)"}}>Cancelability:</strong> To revoke an identity, delete their MongoDB document and re-enroll with a new ID. The original biometric cannot be recovered — only the encrypted template ever existed.
+          <div style={{marginTop:14,padding:"13px 16px",background:"var(--gbg)",border:"1px solid var(--gbdr)",borderRadius:9,fontSize:12,color:"var(--t3)",lineHeight:1.7}}>
+            <strong style={{color:"var(--green)"}}>Cancelability:</strong> To revoke an enrolled identity, simply delete their MongoDB document and re-enroll with a new identity ID. The original biometric cannot be recovered — only the encrypted template existed.
           </div>
         </div>
       </div>
@@ -2004,264 +1842,6 @@ function InsightsTab() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-/* ─── ADMIN TAB ─── */
-function AdminTab() {
-  const [activeSection, setActiveSection] = useState("logs");
-  const [logs, setLogs]         = useState([]);
-  const [users, setUsers]       = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [templates, setTemplates] = useState([]);
-  const [loading, setLoading]   = useState(false);
-  const [msg, setMsg]           = useState("");
-
-  const load = async (section) => {
-    setLoading(true); setMsg("");
-    try {
-      if (section === "logs") {
-        const r = await fetch(`${API_BASE}/admin/logs`);
-        const d = await r.json();
-        setLogs(d.logs || []);
-      } else if (section === "users") {
-        const [ru, rr] = await Promise.all([
-          fetch(`${API_BASE}/admin/users`),
-          fetch(`${API_BASE}/admin/pending-requests`),
-        ]);
-        const du = await ru.json(); const dr = await rr.json();
-        setUsers(du.users || []); setRequests(dr.requests || []);
-      } else if (section === "templates") {
-        const r = await fetch(`${API_BASE}/admin/templates`);
-        const d = await r.json();
-        setTemplates(d.templates || []);
-      }
-    } catch(e) { setMsg("Failed to load data. Check API connection."); }
-    setLoading(false);
-  };
-
-  useEffect(() => { load(activeSection); }, [activeSection]);
-
-  const revokeTemplate = async (iid) => {
-    if (!window.confirm(`Revoke template for identity ${iid}? This cannot be undone.`)) return;
-    try {
-      const r = await fetch(`${API_BASE}/admin/revoke/${iid}`, { method: "DELETE" });
-      if (r.ok) { setMsg(`✓ Identity ${iid} revoked.`); load("templates"); }
-      else { const d = await r.json(); setMsg(d.detail || "Revocation failed."); }
-    } catch(e) { setMsg("Network error."); }
-  };
-
-  const SECTIONS = [
-    { id:"logs",      label:"Activity Log" },
-    { id:"users",     label:"User Management" },
-    { id:"templates", label:"Revoke Templates" },
-    { id:"security",  label:"Security Properties" },
-  ];
-
-  return (
-    <div className="fade-in">
-      {/* Section tabs */}
-      <div style={{display:"flex",gap:6,marginBottom:16,background:"var(--surface2)",padding:4,borderRadius:10,border:"1px solid var(--border)",width:"fit-content"}}>
-        {SECTIONS.map(s => (
-          <button key={s.id}
-            onClick={() => setActiveSection(s.id)}
-            style={{padding:"6px 15px",borderRadius:7,fontSize:12.5,fontWeight:600,border:"none",cursor:"pointer",
-              background: activeSection===s.id ? "var(--surface)" : "transparent",
-              color: activeSection===s.id ? "var(--accent2)" : "var(--t3)",
-              boxShadow: activeSection===s.id ? "var(--sh)" : "none"}}>
-            {s.label}
-          </button>
-        ))}
-      </div>
-
-      {msg && (
-        <div style={{marginBottom:14,padding:"10px 14px",borderRadius:8,
-          background: msg.startsWith("✓") ? "var(--gbg)" : "var(--rbg)",
-          border: `1px solid ${msg.startsWith("✓") ? "var(--gbdr)" : "var(--rbdr)"}`,
-          fontSize:12.5, color: msg.startsWith("✓") ? "var(--green)" : "var(--red)"}}>
-          {msg}
-        </div>
-      )}
-
-      {loading && (
-        <div style={{display:"flex",alignItems:"center",gap:10,padding:"20px 0",color:"var(--t4)",fontSize:13}}>
-          <span className="spinner" style={{display:"inline-block",borderColor:"rgba(74,127,232,.3)",borderTopColor:"var(--accent)"}} />
-          Loading...
-        </div>
-      )}
-
-      {/* ACTIVITY LOG */}
-      {!loading && activeSection === "logs" && (
-        <div className="card">
-          <div className="card-hd">
-            <div><div className="card-ht">Activity Log</div><div className="card-hs">All verification attempts from MongoDB</div></div>
-            <button className="btn-outline" style={{fontSize:11}} onClick={() => load("logs")}>↻ Refresh</button>
-          </div>
-          <div className="card-bd" style={{padding:0}}>
-            {logs.length === 0 ? (
-              <div style={{padding:"24px",textAlign:"center",color:"var(--t4)",fontSize:13}}>No logs found.</div>
-            ) : logs.map((l, i) => (
-              <div key={i} className="act-row" style={{padding:"10px 19px"}}>
-                <div className={`act-dot ${l.accepted ? "ok" : "fail"}`}>{l.accepted ? "✓" : "✕"}</div>
-                <div>
-                  <div className="act-main">ID-{String(l.identity_id).padStart(4,"0")}</div>
-                  <div className="act-sub">d² = {l.distance} · τ = {l.threshold}</div>
-                </div>
-                <div className="act-r">
-                  <span className={`badge ${l.accepted ? "ok" : "fail"}`}>{l.accepted ? "ACCEPTED" : "REJECTED"}</span>
-                  <span className="act-time">{l.timestamp ? new Date(l.timestamp).toLocaleString() : "—"}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* USER MANAGEMENT */}
-      {!loading && activeSection === "users" && (
-        <div style={{display:"flex",flexDirection:"column",gap:13}}>
-          {requests.length > 0 && (
-            <div className="card">
-              <div className="card-hd">
-                <div><div className="card-ht">Pending Admin Requests</div><div className="card-hs">Approve via email link sent to existing admins</div></div>
-                <div style={{fontSize:11,fontWeight:700,color:"var(--amber)",background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.2)",padding:"3px 8px",borderRadius:5}}>
-                  {requests.length} pending
-                </div>
-              </div>
-              <div className="card-bd" style={{padding:0}}>
-                {requests.map((r,i) => (
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 19px",borderBottom:"1px solid var(--border)"}}>
-                    <div style={{width:32,height:32,borderRadius:8,background:"var(--surface2)",border:"1px solid var(--border2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"var(--amber)"}}>⏳</div>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{r.name}</div>
-                      <div style={{fontSize:11,color:"var(--t4)"}}>{r.email}</div>
-                    </div>
-                    <div style={{fontSize:11,color:"var(--t4)",fontFamily:"'JetBrains Mono',monospace"}}>
-                      {r.created_at ? new Date(r.created_at).toLocaleDateString() : "—"}
-                    </div>
-                    <div style={{fontSize:10,fontWeight:700,color:"var(--amber)",background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.2)",padding:"3px 8px",borderRadius:4}}>PENDING</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="card">
-            <div className="card-hd">
-              <div><div className="card-ht">All Users</div><div className="card-hs">{users.length} registered accounts</div></div>
-              <button className="btn-outline" style={{fontSize:11}} onClick={() => load("users")}>↻ Refresh</button>
-            </div>
-            <div className="card-bd" style={{padding:0}}>
-              {users.length === 0 ? (
-                <div style={{padding:"24px",textAlign:"center",color:"var(--t4)",fontSize:13}}>No users found.</div>
-              ) : users.map((u,i) => (
-                <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 19px",borderBottom:"1px solid var(--border)"}}>
-                  <div style={{width:30,height:30,borderRadius:8,background:u.role==="admin"?"var(--abg)":"var(--surface2)",border:`1px solid ${u.role==="admin"?"var(--abdr)":"var(--border)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:u.role==="admin"?"var(--accent2)":"var(--t4)"}}>
-                    {u.role==="admin"?"⚙":"👤"}
-                  </div>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{u.name}</div>
-                    <div style={{fontSize:11,color:"var(--t4)"}}>{u.email}</div>
-                  </div>
-                  <div style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:4,
-                    background:u.role==="admin"?"var(--abg)":"var(--surface2)",
-                    color:u.role==="admin"?"var(--accent2)":"var(--t4)",
-                    border:`1px solid ${u.role==="admin"?"var(--abdr)":"var(--border)"}`}}>
-                    {u.role?.toUpperCase()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* REVOKE TEMPLATES */}
-      {!loading && activeSection === "templates" && (
-        <div className="card">
-          <div className="card-hd">
-            <div><div className="card-ht">Enrolled Templates</div><div className="card-hs">Delete a template to permanently revoke an identity. This is irreversible.</div></div>
-            <button className="btn-outline" style={{fontSize:11}} onClick={() => load("templates")}>↻ Refresh</button>
-          </div>
-          <div className="card-bd" style={{padding:0}}>
-            {templates.length === 0 ? (
-              <div style={{padding:"24px",textAlign:"center",color:"var(--t4)",fontSize:13}}>No templates found in MongoDB.</div>
-            ) : templates.map((t,i) => (
-              <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 19px",borderBottom:"1px solid var(--border)"}}>
-                <div style={{width:30,height:30,borderRadius:7,background:"var(--gbg)",border:"1px solid var(--gbdr)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"var(--green)",fontFamily:"'JetBrains Mono',monospace"}}>
-                  {String(t.identity_id).padStart(3,"0")}
-                </div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>Identity {t.identity_id}</div>
-                  <div style={{fontSize:11,color:"var(--t4)"}}>CKKS encrypted · 32D template</div>
-                </div>
-                <button
-                  onClick={() => revokeTemplate(t.identity_id)}
-                  style={{padding:"5px 12px",borderRadius:6,fontSize:11.5,fontWeight:700,border:"1px solid var(--rbdr)",background:"var(--rbg)",color:"var(--red)",cursor:"pointer"}}>
-                  Revoke
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* SECURITY PROPERTIES */}
-      {!loading && activeSection === "security" && (
-        <div style={{display:"flex",flexDirection:"column",gap:13}}>
-          <div className="g3">
-            {[
-              { title:"Cancelability", icon:"🔄", color:"var(--accent2)", bg:"var(--abg)", bdr:"var(--abdr)",
-                desc:"Templates are cancelable: if compromised, a new random projection seed is issued, entirely changing the encrypted template. Old templates cannot be linked to the new ones.",
-                props:[["Revocation","Delete MongoDB document"],["Re-enrollment","New RP seed → new template"],["Old template","Irrecoverable after deletion"],["Key material","SHA-256 seeded QR matrix"]] },
-              { title:"Irreversibility", icon:"🔒", color:"var(--green)", bg:"var(--gbg)", bdr:"var(--gbdr)",
-                desc:"The CKKS-encrypted template cannot be inverted to recover the original biometric. Even the stored ciphertext reveals nothing about the plaintext finger vein.",
-                props:[["Scheme","TenSEAL CKKS (poly_mod 8192)"],["Plaintext stored","Never"],["Attack surface","Ciphertext only"],["Decryption","Scalar distance only"]] },
-              { title:"Unlinkability", icon:"⛓", color:"var(--amber)", bg:"rgba(245,158,11,.06)", bdr:"rgba(245,158,11,.2)",
-                desc:"Templates from two different projection seeds for the same identity are computationally unlinkable. An adversary cannot determine they belong to the same person.",
-                props:[["Transform","Per-identity QR orthonormal RP"],["Cross-system link","Not possible without seed"],["Seed derivation","SHA-256(global_seed ∥ identity_id)"],["Seed exposure","Never stored in ciphertext"]] },
-            ].map((c,i) => (
-              <div key={i} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,overflow:"hidden"}}>
-                <div style={{padding:"16px 19px",borderBottom:"1px solid var(--border)",background:c.bg,borderTop:`3px solid ${c.color}`}}>
-                  <div style={{fontSize:22,marginBottom:6}}>{c.icon}</div>
-                  <div style={{fontSize:15,fontWeight:700,color:c.color,fontFamily:"'Clash Display',sans-serif"}}>{c.title}</div>
-                </div>
-                <div style={{padding:"14px 19px"}}>
-                  <p style={{fontSize:12.5,color:"var(--t3)",lineHeight:1.72,marginBottom:13}}>{c.desc}</p>
-                  <div className="kv-list">
-                    {c.props.map(([k,v]) => (
-                      <div key={k} className="kv-row">
-                        <div className="kv-k" style={{fontSize:12}}>{k}</div>
-                        <div className="kv-v" style={{fontSize:11,color:c.color}}>{v}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="card">
-            <div className="card-hd"><div><div className="card-ht">Cryptographic Guarantees</div><div className="card-hs">Formal properties of the ENCASE-FV scheme</div></div></div>
-            <div className="card-bd">
-              <div className="kv-list">
-                {[
-                  ["EER at τ=44.87","0.0026%","Near-zero error at optimal threshold"],
-                  ["Genuine mean d²","2.96","Far below threshold — strong intra-class compactness"],
-                  ["Impostor mean d²","142.2","48× separation from genuine distribution"],
-                  ["Template size","4.2 KB","32D CKKS ciphertext per identity"],
-                  ["Revocation cost","O(1)","Single MongoDB delete — no retraining"],
-                  ["Re-enrollment","New seed only","Hardware unchanged, biometric unchanged"],
-                ].map(([k,v,s]) => (
-                  <div key={k} className="kv-row">
-                    <div><div className="kv-k">{k}</div><div className="kv-ks">{s}</div></div>
-                    <div className="kv-v">{v}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
