@@ -13,8 +13,8 @@ import { useState, useEffect, useRef } from "react";
 // When your FastAPI backend is running, replace this URL.
 // In Colab: paste your ngrok URL here, e.g. "https://xxxx.ngrok-free.app"
 // When deployed: paste your Railway/Render URL
-const API_BASE = "https://encase-fv-api.onrender.com"; // e.g. "https://your-ngrok-url.ngrok-free.app"
-const USE_MOCK = !API_BASE; // auto-falls back to simulation when no API
+const API_BASE = "https://encase-fv-api.onrender.com";
+const USE_MOCK = false;
 
 /* ─── GLOBAL CSS ─────────────────────────────────────────────── */
 const CSS = `
@@ -816,7 +816,9 @@ const VeinIcon = ({ size = 14, color = "white" }) => (
 
 /* ─── NAV ─── */
 function Nav({ theme, toggleTheme, page, goTo, dashTab, setDashTab, user, setUser }) {
-  const TABS = ["verify", "enroll", "performance", "insights", "about"];
+  const USER_TABS  = ["verify", "enroll", "performance", "insights", "about"];
+  const ADMIN_TABS = ["verify", "enroll", "performance", "insights", "about", "admin"];
+  const TABS = (user?.role === "admin") ? ADMIN_TABS : USER_TABS;
   return (
     <nav className="nav">
       {page !== "landing" && (
@@ -833,8 +835,9 @@ function Nav({ theme, toggleTheme, page, goTo, dashTab, setDashTab, user, setUse
           <div className="nav-gap" />
           <div className="nav-tabs">
             {TABS.map(t => (
-              <button key={t} className={`ntab${dashTab === t ? " on" : ""}`} onClick={() => setDashTab(t)}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+              <button key={t} className={`ntab${dashTab === t ? " on" : ""}`} onClick={() => setDashTab(t)}
+                style={t === "admin" ? {color: dashTab === "admin" ? "var(--accent2)" : "var(--amber)"} : {}}>
+                {t === "admin" ? "⚙ Admin" : t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
           </div>
@@ -847,7 +850,10 @@ function Nav({ theme, toggleTheme, page, goTo, dashTab, setDashTab, user, setUse
         </button>
         {user ? (
           <>
-            <span style={{ fontSize: 12, color: "var(--t3)", fontWeight: 500 }}>{user.name}</span>
+            <span style={{ fontSize: 12, color: "var(--t3)", fontWeight: 500 }}>
+              {user.name}
+              {user.role === "admin" && <span style={{color:"var(--amber)",marginLeft:5,fontSize:10,fontWeight:700}}>ADMIN</span>}
+            </span>
             <button className="btn-outline" onClick={() => { setUser(null); goTo("landing"); }}>Sign out</button>
           </>
         ) : (
@@ -1142,17 +1148,18 @@ function Hardware() {
 /* ─── AUTH ─── */
 function Auth({ mode, goTo, setUser }) {
   const isLogin = mode === "login";
-  const [step, setStep] = useState("form");
-  const [form, setForm] = useState({ name: "", email: "", phone: "" });
-  const [otp, setOtp] = useState(["","","","","",""]);
-  const [loading, setLoading] = useState(false);
+  const [step, setStep]           = useState("form");
+  const [form, setForm]           = useState({ name: "", email: "" });
+  const [otp, setOtp]             = useState(["","","","","",""]);
+  const [loading, setLoading]     = useState(false);
   const [fieldError, setFieldError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [showAdminReq, setShowAdminReq] = useState(false);
   const otpRefs = useRef([]);
 
   const validateForm = () => {
     if (!isLogin && !form.name.trim()) return "Full name is required.";
     if (!form.email.trim() || !form.email.includes("@")) return "A valid email address is required.";
-    if (!form.phone.trim()) return "Phone number is required.";
     return "";
   };
 
@@ -1160,22 +1167,47 @@ function Auth({ mode, goTo, setUser }) {
     if (step === "form") {
       const err = validateForm();
       if (err) { setFieldError(err); return; }
-      setFieldError("");
-      setLoading(true);
-      await new Promise(r => setTimeout(r, 900)); // simulate sending OTP
+      setFieldError(""); setLoading(true);
+      try {
+        const fd = new FormData();
+        fd.append("email", form.email.trim());
+        fd.append("name",  form.name.trim());
+        fd.append("mode",  mode);
+        const res = await fetch(`${API_BASE}/send-otp`, { method: "POST", body: fd });
+        const data = await res.json();
+        if (!res.ok) { setFieldError(data.detail || "Failed to send OTP."); setLoading(false); return; }
+        setStep("otp");
+      } catch(e) { setFieldError("Cannot reach server. Check your connection."); }
       setLoading(false);
-      setStep("otp");
       return;
     }
-    // OTP step — simulate verification
+    // OTP verify
     setLoading(true);
-    await new Promise(r => setTimeout(r, 700));
+    try {
+      const fd = new FormData();
+      fd.append("email", form.email.trim());
+      fd.append("code",  otp.join(""));
+      const res = await fetch(`${API_BASE}/verify-otp`, { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { setFieldError(data.detail || "Incorrect code."); setLoading(false); return; }
+      setUser(data.user);
+      goTo("dashboard");
+    } catch(e) { setFieldError("Cannot reach server."); }
     setLoading(false);
-    const name = isLogin
-      ? (form.email.split("@")[0].replace(/[^a-zA-Z]/g, " ") || "Researcher")
-      : form.name;
-    setUser({ name, email: form.email });
-    goTo("dashboard");
+  };
+
+  const handleAdminRequest = async () => {
+    setLoading(true); setFieldError("");
+    try {
+      const fd = new FormData();
+      fd.append("email", form.email.trim());
+      fd.append("name",  form.name.trim());
+      const res = await fetch(`${API_BASE}/admin/request`, { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { setFieldError(data.detail || "Request failed."); }
+      else { setSuccessMsg("Request sent! An admin will review it and email you."); setShowAdminReq(false); }
+    } catch(e) { setFieldError("Cannot reach server."); }
+    setLoading(false);
   };
 
   const handleOtp = (i, v) => {
@@ -1221,17 +1253,24 @@ function Auth({ mode, goTo, setUser }) {
       </div>
       <div className="auth-r">
         <div className="auth-form fade-in">
-          {step === "form" ? (
+          {successMsg ? (
+            <div style={{textAlign:"center",padding:"20px 0"}}>
+              <div style={{fontSize:36,marginBottom:14}}>✓</div>
+              <div className="auth-h display" style={{color:"var(--green)"}}>Request Sent</div>
+              <p style={{color:"var(--t3)",fontSize:13,marginTop:10,lineHeight:1.7}}>{successMsg}</p>
+              <button className="auth-btn" style={{marginTop:20}} onClick={() => goTo("login")}>Back to Sign In</button>
+            </div>
+          ) : step === "form" ? (
             <>
               <div className="auth-h display">{isLogin ? "Sign in" : "Create account"}</div>
               <div className="auth-sub">
                 {isLogin
-                  ? <><span className="auth-link" onClick={() => goTo("signup")}>Don't have an account? Sign up</span></>
-                  : <><span className="auth-link" onClick={() => goTo("login")}>Already have an account? Sign in</span></>
+                  ? <span className="auth-link" onClick={() => goTo("signup")}>Don't have an account? Sign up</span>
+                  : <span className="auth-link" onClick={() => goTo("login")}>Already have an account? Sign in</span>
                 }
               </div>
               {fieldError && (
-                <div style={{ padding:"9px 12px", marginBottom: 12, borderRadius: 7, background: "var(--rbg)", border: "1px solid var(--rbdr)", fontSize: 12, color: "var(--red)" }}>
+                <div style={{padding:"9px 12px",marginBottom:12,borderRadius:7,background:"var(--rbg)",border:"1px solid var(--rbdr)",fontSize:12,color:"var(--red)"}}>
                   {fieldError}
                 </div>
               )}
@@ -1239,25 +1278,50 @@ function Auth({ mode, goTo, setUser }) {
                 <>
                   <div className="flbl">Full Name</div>
                   <input className="finp" placeholder="Dr. Jane Smith" value={form.name}
-                    onChange={e => setForm({ ...form, name: e.target.value })} />
+                    onChange={e => setForm({...form, name: e.target.value})} />
                 </>
               )}
               <div className="flbl">Email Address</div>
               <input className="finp" type="email" placeholder="you@university.edu" value={form.email}
-                onChange={e => setForm({ ...form, email: e.target.value })} />
-              <div className="flbl">Phone Number</div>
-              <input className="finp" type="tel" placeholder="+1 (555) 000-0000" value={form.phone}
-                onChange={e => setForm({ ...form, phone: e.target.value })} />
+                onChange={e => setForm({...form, email: e.target.value})} />
               <button className="auth-btn" onClick={handleSubmit} disabled={loading}>
                 {loading ? <><span className="spinner" style={{display:"inline-block"}} /> Sending OTP...</> : (isLogin ? "Send OTP" : "Continue")}
               </button>
+              {isLogin && (
+                <div style={{marginTop:14,textAlign:"center"}}>
+                  <span style={{fontSize:12,color:"var(--t4)"}}>Need admin access? </span>
+                  <span className="auth-link" style={{fontSize:12}} onClick={() => setShowAdminReq(true)}>Request it here</span>
+                </div>
+              )}
+              {showAdminReq && (
+                <div style={{marginTop:16,padding:"14px 16px",background:"var(--surface2)",borderRadius:10,border:"1px solid var(--border2)"}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:8}}>Request Admin Access</div>
+                  <div className="flbl">Your Email</div>
+                  <input className="finp" type="email" placeholder="you@university.edu" value={form.email}
+                    onChange={e => setForm({...form, email: e.target.value})} style={{marginBottom:8}} />
+                  <div className="flbl">Your Name</div>
+                  <input className="finp" placeholder="Dr. Jane Smith" value={form.name}
+                    onChange={e => setForm({...form, name: e.target.value})} style={{marginBottom:10}} />
+                  <div style={{display:"flex",gap:8}}>
+                    <button className="auth-btn" style={{flex:1,padding:"9px"}} onClick={handleAdminRequest} disabled={loading}>
+                      {loading ? "Sending..." : "Send Request"}
+                    </button>
+                    <button className="btn-outline" style={{padding:"9px 14px"}} onClick={() => setShowAdminReq(false)}>Cancel</button>
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <>
               <div className="auth-h display">Verify your identity</div>
               <div className="auth-sub">
-                We sent a 6-digit code to <strong style={{ color: "var(--t1)" }}>{form.phone}</strong>
+                We sent a 6-digit code to <strong style={{color:"var(--t1)"}}>{form.email}</strong>
               </div>
+              {fieldError && (
+                <div style={{padding:"9px 12px",marginBottom:12,borderRadius:7,background:"var(--rbg)",border:"1px solid var(--rbdr)",fontSize:12,color:"var(--red)"}}>
+                  {fieldError}
+                </div>
+              )}
               <div className="otp-row" onPaste={handlePaste}>
                 {otp.map((v, i) => (
                   <input key={i} ref={el => otpRefs.current[i] = el}
@@ -1267,16 +1331,13 @@ function Auth({ mode, goTo, setUser }) {
                     onKeyDown={e => handleOtpKey(i, e)} />
                 ))}
               </div>
-              <div className="auth-note">
-                This is a demo — any 6-digit code will be accepted. In production, this would be a real SMS OTP via your carrier.
-              </div>
               <button className="auth-btn" onClick={handleSubmit}
                 disabled={otp.join("").length < 6 || loading}>
                 {loading ? <><span className="spinner" style={{display:"inline-block"}} /> Verifying...</> : `Verify & ${isLogin ? "Sign in" : "Create account"}`}
               </button>
               <div className="divider">or</div>
-              <button className="btn-outline" style={{ width: "100%", textAlign: "center", padding: "9px" }}
-                onClick={() => { setStep("form"); setOtp(["","","","","",""]); }}>
+              <button className="btn-outline" style={{width:"100%",textAlign:"center",padding:"9px"}}
+                onClick={() => { setStep("form"); setOtp(["","","","","",""]); setFieldError(""); }}>
                 ← Back
               </button>
             </>
@@ -1308,6 +1369,14 @@ function Dashboard({ tab, setTab, user }) {
         {tab === "performance" && <PerformanceTab />}
         {tab === "insights"    && <InsightsTab />}
         {tab === "about"       && <AboutTab />}
+        {tab === "admin"       && user?.role === "admin" && <AdminTab />}
+        {tab === "admin"       && user?.role !== "admin" && (
+          <div style={{textAlign:"center",padding:"60px 20px"}}>
+            <div style={{fontSize:32,marginBottom:12}}>🔒</div>
+            <div style={{fontSize:16,fontWeight:700,color:"var(--t1)"}}>Admin access required</div>
+            <div style={{fontSize:13,color:"var(--t3)",marginTop:6}}>You do not have permission to view this tab.</div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1935,6 +2004,264 @@ function InsightsTab() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── ADMIN TAB ─── */
+function AdminTab() {
+  const [activeSection, setActiveSection] = useState("logs");
+  const [logs, setLogs]         = useState([]);
+  const [users, setUsers]       = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading]   = useState(false);
+  const [msg, setMsg]           = useState("");
+
+  const load = async (section) => {
+    setLoading(true); setMsg("");
+    try {
+      if (section === "logs") {
+        const r = await fetch(`${API_BASE}/admin/logs`);
+        const d = await r.json();
+        setLogs(d.logs || []);
+      } else if (section === "users") {
+        const [ru, rr] = await Promise.all([
+          fetch(`${API_BASE}/admin/users`),
+          fetch(`${API_BASE}/admin/pending-requests`),
+        ]);
+        const du = await ru.json(); const dr = await rr.json();
+        setUsers(du.users || []); setRequests(dr.requests || []);
+      } else if (section === "templates") {
+        const r = await fetch(`${API_BASE}/admin/templates`);
+        const d = await r.json();
+        setTemplates(d.templates || []);
+      }
+    } catch(e) { setMsg("Failed to load data. Check API connection."); }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(activeSection); }, [activeSection]);
+
+  const revokeTemplate = async (iid) => {
+    if (!window.confirm(`Revoke template for identity ${iid}? This cannot be undone.`)) return;
+    try {
+      const r = await fetch(`${API_BASE}/admin/revoke/${iid}`, { method: "DELETE" });
+      if (r.ok) { setMsg(`✓ Identity ${iid} revoked.`); load("templates"); }
+      else { const d = await r.json(); setMsg(d.detail || "Revocation failed."); }
+    } catch(e) { setMsg("Network error."); }
+  };
+
+  const SECTIONS = [
+    { id:"logs",      label:"Activity Log" },
+    { id:"users",     label:"User Management" },
+    { id:"templates", label:"Revoke Templates" },
+    { id:"security",  label:"Security Properties" },
+  ];
+
+  return (
+    <div className="fade-in">
+      {/* Section tabs */}
+      <div style={{display:"flex",gap:6,marginBottom:16,background:"var(--surface2)",padding:4,borderRadius:10,border:"1px solid var(--border)",width:"fit-content"}}>
+        {SECTIONS.map(s => (
+          <button key={s.id}
+            onClick={() => setActiveSection(s.id)}
+            style={{padding:"6px 15px",borderRadius:7,fontSize:12.5,fontWeight:600,border:"none",cursor:"pointer",
+              background: activeSection===s.id ? "var(--surface)" : "transparent",
+              color: activeSection===s.id ? "var(--accent2)" : "var(--t3)",
+              boxShadow: activeSection===s.id ? "var(--sh)" : "none"}}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {msg && (
+        <div style={{marginBottom:14,padding:"10px 14px",borderRadius:8,
+          background: msg.startsWith("✓") ? "var(--gbg)" : "var(--rbg)",
+          border: `1px solid ${msg.startsWith("✓") ? "var(--gbdr)" : "var(--rbdr)"}`,
+          fontSize:12.5, color: msg.startsWith("✓") ? "var(--green)" : "var(--red)"}}>
+          {msg}
+        </div>
+      )}
+
+      {loading && (
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"20px 0",color:"var(--t4)",fontSize:13}}>
+          <span className="spinner" style={{display:"inline-block",borderColor:"rgba(74,127,232,.3)",borderTopColor:"var(--accent)"}} />
+          Loading...
+        </div>
+      )}
+
+      {/* ACTIVITY LOG */}
+      {!loading && activeSection === "logs" && (
+        <div className="card">
+          <div className="card-hd">
+            <div><div className="card-ht">Activity Log</div><div className="card-hs">All verification attempts from MongoDB</div></div>
+            <button className="btn-outline" style={{fontSize:11}} onClick={() => load("logs")}>↻ Refresh</button>
+          </div>
+          <div className="card-bd" style={{padding:0}}>
+            {logs.length === 0 ? (
+              <div style={{padding:"24px",textAlign:"center",color:"var(--t4)",fontSize:13}}>No logs found.</div>
+            ) : logs.map((l, i) => (
+              <div key={i} className="act-row" style={{padding:"10px 19px"}}>
+                <div className={`act-dot ${l.accepted ? "ok" : "fail"}`}>{l.accepted ? "✓" : "✕"}</div>
+                <div>
+                  <div className="act-main">ID-{String(l.identity_id).padStart(4,"0")}</div>
+                  <div className="act-sub">d² = {l.distance} · τ = {l.threshold}</div>
+                </div>
+                <div className="act-r">
+                  <span className={`badge ${l.accepted ? "ok" : "fail"}`}>{l.accepted ? "ACCEPTED" : "REJECTED"}</span>
+                  <span className="act-time">{l.timestamp ? new Date(l.timestamp).toLocaleString() : "—"}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* USER MANAGEMENT */}
+      {!loading && activeSection === "users" && (
+        <div style={{display:"flex",flexDirection:"column",gap:13}}>
+          {requests.length > 0 && (
+            <div className="card">
+              <div className="card-hd">
+                <div><div className="card-ht">Pending Admin Requests</div><div className="card-hs">Approve via email link sent to existing admins</div></div>
+                <div style={{fontSize:11,fontWeight:700,color:"var(--amber)",background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.2)",padding:"3px 8px",borderRadius:5}}>
+                  {requests.length} pending
+                </div>
+              </div>
+              <div className="card-bd" style={{padding:0}}>
+                {requests.map((r,i) => (
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 19px",borderBottom:"1px solid var(--border)"}}>
+                    <div style={{width:32,height:32,borderRadius:8,background:"var(--surface2)",border:"1px solid var(--border2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"var(--amber)"}}>⏳</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{r.name}</div>
+                      <div style={{fontSize:11,color:"var(--t4)"}}>{r.email}</div>
+                    </div>
+                    <div style={{fontSize:11,color:"var(--t4)",fontFamily:"'JetBrains Mono',monospace"}}>
+                      {r.created_at ? new Date(r.created_at).toLocaleDateString() : "—"}
+                    </div>
+                    <div style={{fontSize:10,fontWeight:700,color:"var(--amber)",background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.2)",padding:"3px 8px",borderRadius:4}}>PENDING</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="card">
+            <div className="card-hd">
+              <div><div className="card-ht">All Users</div><div className="card-hs">{users.length} registered accounts</div></div>
+              <button className="btn-outline" style={{fontSize:11}} onClick={() => load("users")}>↻ Refresh</button>
+            </div>
+            <div className="card-bd" style={{padding:0}}>
+              {users.length === 0 ? (
+                <div style={{padding:"24px",textAlign:"center",color:"var(--t4)",fontSize:13}}>No users found.</div>
+              ) : users.map((u,i) => (
+                <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 19px",borderBottom:"1px solid var(--border)"}}>
+                  <div style={{width:30,height:30,borderRadius:8,background:u.role==="admin"?"var(--abg)":"var(--surface2)",border:`1px solid ${u.role==="admin"?"var(--abdr)":"var(--border)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:u.role==="admin"?"var(--accent2)":"var(--t4)"}}>
+                    {u.role==="admin"?"⚙":"👤"}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{u.name}</div>
+                    <div style={{fontSize:11,color:"var(--t4)"}}>{u.email}</div>
+                  </div>
+                  <div style={{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:4,
+                    background:u.role==="admin"?"var(--abg)":"var(--surface2)",
+                    color:u.role==="admin"?"var(--accent2)":"var(--t4)",
+                    border:`1px solid ${u.role==="admin"?"var(--abdr)":"var(--border)"}`}}>
+                    {u.role?.toUpperCase()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REVOKE TEMPLATES */}
+      {!loading && activeSection === "templates" && (
+        <div className="card">
+          <div className="card-hd">
+            <div><div className="card-ht">Enrolled Templates</div><div className="card-hs">Delete a template to permanently revoke an identity. This is irreversible.</div></div>
+            <button className="btn-outline" style={{fontSize:11}} onClick={() => load("templates")}>↻ Refresh</button>
+          </div>
+          <div className="card-bd" style={{padding:0}}>
+            {templates.length === 0 ? (
+              <div style={{padding:"24px",textAlign:"center",color:"var(--t4)",fontSize:13}}>No templates found in MongoDB.</div>
+            ) : templates.map((t,i) => (
+              <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 19px",borderBottom:"1px solid var(--border)"}}>
+                <div style={{width:30,height:30,borderRadius:7,background:"var(--gbg)",border:"1px solid var(--gbdr)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"var(--green)",fontFamily:"'JetBrains Mono',monospace"}}>
+                  {String(t.identity_id).padStart(3,"0")}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>Identity {t.identity_id}</div>
+                  <div style={{fontSize:11,color:"var(--t4)"}}>CKKS encrypted · 32D template</div>
+                </div>
+                <button
+                  onClick={() => revokeTemplate(t.identity_id)}
+                  style={{padding:"5px 12px",borderRadius:6,fontSize:11.5,fontWeight:700,border:"1px solid var(--rbdr)",background:"var(--rbg)",color:"var(--red)",cursor:"pointer"}}>
+                  Revoke
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* SECURITY PROPERTIES */}
+      {!loading && activeSection === "security" && (
+        <div style={{display:"flex",flexDirection:"column",gap:13}}>
+          <div className="g3">
+            {[
+              { title:"Cancelability", icon:"🔄", color:"var(--accent2)", bg:"var(--abg)", bdr:"var(--abdr)",
+                desc:"Templates are cancelable: if compromised, a new random projection seed is issued, entirely changing the encrypted template. Old templates cannot be linked to the new ones.",
+                props:[["Revocation","Delete MongoDB document"],["Re-enrollment","New RP seed → new template"],["Old template","Irrecoverable after deletion"],["Key material","SHA-256 seeded QR matrix"]] },
+              { title:"Irreversibility", icon:"🔒", color:"var(--green)", bg:"var(--gbg)", bdr:"var(--gbdr)",
+                desc:"The CKKS-encrypted template cannot be inverted to recover the original biometric. Even the stored ciphertext reveals nothing about the plaintext finger vein.",
+                props:[["Scheme","TenSEAL CKKS (poly_mod 8192)"],["Plaintext stored","Never"],["Attack surface","Ciphertext only"],["Decryption","Scalar distance only"]] },
+              { title:"Unlinkability", icon:"⛓", color:"var(--amber)", bg:"rgba(245,158,11,.06)", bdr:"rgba(245,158,11,.2)",
+                desc:"Templates from two different projection seeds for the same identity are computationally unlinkable. An adversary cannot determine they belong to the same person.",
+                props:[["Transform","Per-identity QR orthonormal RP"],["Cross-system link","Not possible without seed"],["Seed derivation","SHA-256(global_seed ∥ identity_id)"],["Seed exposure","Never stored in ciphertext"]] },
+            ].map((c,i) => (
+              <div key={i} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,overflow:"hidden"}}>
+                <div style={{padding:"16px 19px",borderBottom:"1px solid var(--border)",background:c.bg,borderTop:`3px solid ${c.color}`}}>
+                  <div style={{fontSize:22,marginBottom:6}}>{c.icon}</div>
+                  <div style={{fontSize:15,fontWeight:700,color:c.color,fontFamily:"'Clash Display',sans-serif"}}>{c.title}</div>
+                </div>
+                <div style={{padding:"14px 19px"}}>
+                  <p style={{fontSize:12.5,color:"var(--t3)",lineHeight:1.72,marginBottom:13}}>{c.desc}</p>
+                  <div className="kv-list">
+                    {c.props.map(([k,v]) => (
+                      <div key={k} className="kv-row">
+                        <div className="kv-k" style={{fontSize:12}}>{k}</div>
+                        <div className="kv-v" style={{fontSize:11,color:c.color}}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="card">
+            <div className="card-hd"><div><div className="card-ht">Cryptographic Guarantees</div><div className="card-hs">Formal properties of the ENCASE-FV scheme</div></div></div>
+            <div className="card-bd">
+              <div className="kv-list">
+                {[
+                  ["EER at τ=44.87","0.0026%","Near-zero error at optimal threshold"],
+                  ["Genuine mean d²","2.96","Far below threshold — strong intra-class compactness"],
+                  ["Impostor mean d²","142.2","48× separation from genuine distribution"],
+                  ["Template size","4.2 KB","32D CKKS ciphertext per identity"],
+                  ["Revocation cost","O(1)","Single MongoDB delete — no retraining"],
+                  ["Re-enrollment","New seed only","Hardware unchanged, biometric unchanged"],
+                ].map(([k,v,s]) => (
+                  <div key={k} className="kv-row">
+                    <div><div className="kv-k">{k}</div><div className="kv-ks">{s}</div></div>
+                    <div className="kv-v">{v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
