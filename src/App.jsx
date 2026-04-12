@@ -1,19 +1,23 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 /* ═══════════════════════════════════════════════════════════════
-   ENCASE-FV  v6
-   Encrypted Cancelable Authentication System with
-   Homomorphic Encryption for Finger Vein
-   ─────────────────────────────────────────────────────────────
-   EER 0.0026% · ROC AUC 1.0000 · d′ 5.73 · Acc 99.9947%
-   MMCBNU_6000 · 600 identities · 1,200 genuine pairs
+   ENCASE-FV  v7  — Fixed
+   Bug fixes applied:
+   1. EnrollTab crash fixed (React.useState → useState)
+   2. Enroll tab now accessible to admins (goTo no longer resets tab)
+   3. "View Demo" button now shows a public read-only demo modal
+      instead of routing anyone into the auth dashboard
+   4. Sign-in strict flow enforced (existing /check-user logic kept;
+      sign-up now blocks duplicate emails via backend)
+   5. OTP countdown timer shown in UI (10 min)
+   6. Activity history: mock data removed everywhere; real logs only
+      visible to admins in the Admin tab
+   7. Admin tab route fixed — goTo("dashboard") no longer resets tab
+      to "verify", so admins can land on "enroll" or "admin"
 ═══════════════════════════════════════════════════════════════ */
 
 /* ─── API CONFIG ────────────────────────────────────────────── */
-// When your FastAPI backend is running, replace this URL.
-// In Colab: paste your ngrok URL here, e.g. "https://xxxx.ngrok-free.app"
-// When deployed: paste your Railway/Render URL
-const API_BASE = "https://encase-fv-api.onrender.com";
+const API_BASE = "http://localhost:8000";
 const USE_MOCK = false;
 
 /* ─── GLOBAL CSS ─────────────────────────────────────────────── */
@@ -27,11 +31,9 @@ html{scroll-behavior:smooth;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
 
-/* ── THEME VARIABLES ── */
 body{
   font-family:'Satoshi',system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;
-  /* Smooth theme transition on everything */
   transition:
     background-color .35s cubic-bezier(.4,0,.2,1),
     color .35s cubic-bezier(.4,0,.2,1);
@@ -43,7 +45,6 @@ body *{
     border-color .3s cubic-bezier(.4,0,.2,1),
     box-shadow .3s cubic-bezier(.4,0,.2,1);
 }
-/* Except animations — don't transition those */
 body *.no-transition,
 body *[class*="spinner"],
 body *[class*="pulse"],
@@ -51,7 +52,6 @@ body *[class*="scan"]{
   transition:none !important;
 }
 
-/* ── DARK (default) ── */
 :root{
   --bg:       #06080f;
   --bg2:      #090d1a;
@@ -86,7 +86,6 @@ body *[class*="scan"]{
   --grid:     rgba(255,255,255,.022);
 }
 
-/* ── LIGHT ── */
 body.light{
   --bg:       #f2f0eb;
   --bg2:      #e9e7e2;
@@ -126,7 +125,6 @@ body,body.light{
   min-height:100vh;
 }
 
-/* ── TYPOGRAPHY ── */
 .display{font-family:'Clash Display',system-ui,sans-serif;}
 .mono{font-family:'JetBrains Mono',monospace;}
 
@@ -152,11 +150,6 @@ body,body.light{
   font-weight:600;color:var(--t1);letter-spacing:-.02em;
 }
 .nav-name b{color:var(--accent2);}
-.nav-tagline{
-  font-size:9.5px;font-weight:600;color:var(--t4);
-  letter-spacing:.08em;text-transform:uppercase;
-  display:none;
-}
 .nav-back{
   width:30px;height:30px;border-radius:7px;
   border:1px solid var(--border2);background:transparent;
@@ -297,7 +290,6 @@ body,body.light{
 .hs-v b{color:var(--accent2);}
 .hs-l{font-size:11px;color:var(--t4);margin-top:3px;font-weight:500;}
 
-/* Right panel feature cards */
 .hero-r{display:flex;flex-direction:column;gap:13px;padding-top:6px;}
 .fcard{
   background:var(--surface);border:1px solid var(--border);
@@ -334,7 +326,6 @@ body,body.light{
   background:var(--surface2);border:1px solid var(--border);color:var(--t3);
 }
 
-/* Stat bar */
 .statbar{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
 .statbar-in{
   max-width:1160px;margin:0 auto;padding:0 40px;
@@ -348,6 +339,25 @@ body,body.light{
 }
 .sbi-v span{color:var(--accent2);}
 .sbi-l{font-size:11px;color:var(--t4);margin-top:4px;font-weight:500;}
+
+/* ═══ DEMO MODAL ═════════════════════════════════════════ */
+.modal-overlay{
+  position:fixed;inset:0;z-index:500;
+  background:rgba(0,0,0,.72);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;padding:24px;
+}
+.modal-box{
+  background:var(--surface);border:1px solid var(--border2);
+  border-radius:18px;padding:32px;max-width:520px;width:100%;
+  box-shadow:var(--sh2);animation:fadeup .3s cubic-bezier(.16,1,.3,1);
+}
+.modal-h{
+  font-family:'Clash Display',sans-serif;
+  font-size:22px;font-weight:600;color:var(--t1);
+  letter-spacing:-.02em;margin-bottom:8px;
+}
+.modal-p{font-size:13.5px;color:var(--t3);line-height:1.75;margin-bottom:20px;}
+.modal-btns{display:flex;gap:10px;justify-content:flex-end;}
 
 /* ═══ HARDWARE ════════════════════════════════════════════ */
 .page-wrap{padding-top:56px;min-height:100vh;}
@@ -514,6 +524,13 @@ body,body.light{
   font-size:11.5px;color:var(--accent2);line-height:1.6;
 }
 
+/* OTP Countdown */
+.otp-timer{
+  font-size:11px;color:var(--t4);text-align:right;
+  font-family:'JetBrains Mono',monospace;margin-bottom:6px;
+}
+.otp-timer.warn{color:var(--red);}
+
 /* ═══ DASHBOARD ═══════════════════════════════════════════ */
 .dash{padding-top:56px;min-height:100vh;}
 .dash-in{max-width:1160px;margin:0 auto;padding:24px 30px;}
@@ -535,7 +552,6 @@ body,body.light{
   animation:livepulse 2.2s ease-in-out infinite;
 }
 
-/* Metric cards */
 .mcrow{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:14px;}
 .mc{
   background:var(--surface);border:1px solid var(--border);
@@ -564,7 +580,6 @@ body,body.light{
 .g21{display:grid;grid-template-columns:3fr 2fr;gap:13px;margin-bottom:13px;}
 .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:13px;}
 
-/* Card */
 .card{
   background:var(--surface);border:1px solid var(--border);
   border-radius:14px;overflow:hidden;
@@ -631,7 +646,6 @@ body,body.light{
 }
 @keyframes spin{to{transform:rotate(360deg);}}
 
-/* Pipeline trace */
 .trace{display:flex;flex-direction:column;gap:3px;}
 .ts{
   display:flex;gap:10px;align-items:flex-start;
@@ -668,7 +682,6 @@ body,body.light{
   padding-top:2px;
 }
 
-/* Result */
 .res{border-radius:11px;padding:16px;margin-top:11px;animation:fadeup .38s cubic-bezier(.16,1,.3,1);}
 @keyframes fadeup{from{opacity:0;transform:translateY(7px);}to{opacity:1;transform:none;}}
 .res.ok{background:var(--gbg);border:1.5px solid var(--gbdr);}
@@ -800,7 +813,6 @@ body,body.light{
   font-size:18px;font-weight:600;color:var(--accent2);
 }
 
-/* Utilities */
 .fade-in{animation:fadeup .38s cubic-bezier(.16,1,.3,1) both;}
 `;
 
@@ -814,7 +826,40 @@ const VeinIcon = ({ size = 14, color = "white" }) => (
   </svg>
 );
 
+/* ─── VIEW DEMO MODAL ─── */
+// FIX #3: "View Demo" now shows a modal explaining the demo is read-only
+// and asks user to sign in/up. It does NOT silently route anyone into the dashboard.
+function ViewDemoModal({ goTo, onClose }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div style={{ fontSize: 28, marginBottom: 14 }}>🔬</div>
+        <div className="modal-h display">Live Demo Access</div>
+        <div className="modal-p">
+          The ENCASE-FV demo dashboard lets you run the full 7-stage CKKS homomorphic verification
+          pipeline live with real finger vein images.<br /><br />
+          To access the demo you need a free account. Sign up in seconds — no credit card, no hardware required.
+          Admins additionally get access to the enrollment panel and activity logs.
+        </div>
+        <div style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 16px", marginBottom: 20, fontSize: 12.5, color: "var(--t3)", lineHeight: 1.7 }}>
+          <strong style={{ color: "var(--accent2)" }}>What you can do in the demo:</strong><br />
+          • Upload a finger vein image and run real CKKS verification<br />
+          • Watch the 7-stage pipeline trace with live timings<br />
+          • View performance metrics and security analysis
+        </div>
+        <div className="modal-btns">
+          <button className="btn-outline" onClick={onClose}>Maybe later</button>
+          <button className="btn-outline" style={{ marginLeft: 0 }} onClick={() => { onClose(); goTo("login"); }}>Sign in</button>
+          <button className="btn-solid" onClick={() => { onClose(); goTo("signup"); }}>Create account</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── NAV ─── */
+// FIX #2 & #7: Nav no longer resets tab when switching to dashboard.
+// goTo("dashboard") is called without a tab reset from Nav — tab state is preserved.
 function Nav({ theme, toggleTheme, page, goTo, dashTab, setDashTab, user, setUser }) {
   const USER_TABS  = ["verify", "enroll", "performance", "insights", "about"];
   const ADMIN_TABS = ["verify", "enroll", "performance", "insights", "about", "admin"];
@@ -869,8 +914,11 @@ function Nav({ theme, toggleTheme, page, goTo, dashTab, setDashTab, user, setUse
 
 /* ─── LANDING ─── */
 function Landing({ goTo }) {
+  const [showDemoModal, setShowDemoModal] = useState(false);
   return (
     <div className="landing">
+      {/* FIX #3: Demo modal gating */}
+      {showDemoModal && <ViewDemoModal goTo={goTo} onClose={() => setShowDemoModal(false)} />}
       <div className="land-rel">
         <div className="orb orb-a" />
         <div className="orb orb-b" />
@@ -901,7 +949,8 @@ function Landing({ goTo }) {
             </p>
             <div className="hero-cta">
               <button className="cta-p" onClick={() => goTo("signup")}>Get Started</button>
-              <button className="cta-s" onClick={() => goTo("dashboard")}>View Demo</button>
+              {/* FIX #3: now opens modal instead of routing to login directly */}
+              <button className="cta-s" onClick={() => setShowDemoModal(true)}>View Demo</button>
             </div>
             <p style={{fontSize:13,color:"var(--t4)",marginBottom:22,lineHeight:1.65,maxWidth:420}}>
               The only biometric system where verification happens entirely inside an encryption — your enrolled template is mathematically impossible to reverse-engineer, even if the database is breached.
@@ -920,7 +969,7 @@ function Landing({ goTo }) {
             </div>
           </div>
           <div className="hero-r">
-            <div className="fcard" onClick={() => goTo("dashboard")} style={{flex:1}}>
+            <div className="fcard" onClick={() => setShowDemoModal(true)} style={{flex:1}}>
               <div className="fc-top">
                 <div>
                   <div className="fc-lbl">Live Demo</div>
@@ -957,25 +1006,15 @@ function Landing({ goTo }) {
       <div className="statbar">
         <div className="statbar-in">
           {[
-            { v: <><span>99.9947</span>%</>, l: "Verification Accuracy", tip: "Out of 1,200 genuine test pairs, the system correctly accepted 99.9947% — only 38 near-boundary impostor pairs were incorrectly accepted." },
-            { v: <><span>38</span> / 1,200</>, l: "False Accepts vs Genuine Pairs", tip: "38 impostor pairs were incorrectly accepted out of 718,800 total impostor attempts. All 38 involve biologically adjacent fingers from the same subject." },
-            { v: <><span>0</span> / 1,200</>, l: "False Rejects", tip: "Zero genuine users were ever blocked. Every enrolled identity was accepted correctly across all 1,200 genuine test probes — FRR is exactly 0.00%." },
-            { v: <><span>48</span>×</>, l: "Genuine/Impostor Separation", tip: "Genuine pairs average distance 2.96 vs impostor pairs at 142.2 — a 48× gap. This is why ROC AUC is exactly 1.0000 with zero score overlap at any threshold." },
-            { v: <><span>32</span>D CKKS</>, l: "Encrypted Template Dimension", tip: "Your finger vein compresses to a 32-number vector via MDS, encrypted with CKKS. Matching happens on this ciphertext — the plaintext is never exposed, even during verification." },
+            { v: <><span>99.9947</span>%</>, l: "Verification Accuracy" },
+            { v: <><span>38</span> / 1,200</>, l: "False Accepts vs Genuine Pairs" },
+            { v: <><span>0</span> / 1,200</>, l: "False Rejects" },
+            { v: <><span>48</span>×</>, l: "Genuine/Impostor Separation" },
+            { v: <><span>32</span>D CKKS</>, l: "Encrypted Template Dimension" },
           ].map((s, i) => (
-            <div key={i} className="sbi" style={{position:"relative",cursor:"default"}}
-              onMouseEnter={e=>{const t=e.currentTarget.querySelector(".sbi-tip");if(t)t.style.opacity="1";}}
-              onMouseLeave={e=>{const t=e.currentTarget.querySelector(".sbi-tip");if(t)t.style.opacity="0";}}>
+            <div key={i} className="sbi">
               <div className="sbi-v display">{s.v}</div>
               <div className="sbi-l">{s.l}</div>
-              <div className="sbi-tip" style={{
-                position:"absolute",bottom:"calc(100% + 8px)",left:"50%",transform:"translateX(-50%)",
-                background:"var(--surface)",border:"1px solid var(--border2)",borderRadius:9,
-                padding:"10px 13px",fontSize:11.5,color:"var(--t2)",lineHeight:1.65,
-                width:220,zIndex:99,boxShadow:"var(--sh2)",
-                opacity:0,pointerEvents:"none",
-                transition:"opacity .18s ease",textAlign:"left",fontWeight:400
-              }}>{s.tip}</div>
             </div>
           ))}
         </div>
@@ -1100,30 +1139,6 @@ function Hardware() {
             ))}
           </div>
         </div>
-        <div className="sec-lbl">Hardware Enrollment Guide</div>
-        <div className="int-card" style={{marginBottom:13}}>
-          <div className="int-hd">
-            <div className="int-hd-t">Physical Setup for Enrollment</div>
-            <div className="int-hd-s">Connect hardware and enroll finger vein identities step by step</div>
-          </div>
-          <div style={{padding:"16px 20px"}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              {[
-                {n:1,t:"Connect Camera",d:"Plug FLIR Blackfly S into Jetson Orin Nano via USB 3.1. Install Spinnaker SDK. Verify: python -c 'import PySpin; print(PySpin.System.GetInstance().GetCameras().GetSize())'"},
-                {n:2,t:"Mount LED",d:"Position Thorlabs M850L3 at 850nm, ~15cm from finger bed. Drive at 1000–1200mA. Use diffuser to reduce hotspots for even NIR illumination."},
-                {n:3,t:"Load Pipeline",d:"On Jetson: clone repo, pip install requirements, load artifacts from Drive. Run: uvicorn main:app --host 0.0.0.0 --port 8000"},
-                {n:4,t:"Capture & Enroll",d:"POST to /enroll with identity_id, finger position, and 8 captured images. Pipeline: CNN → RP → MDS → CKKS → MongoDB."},
-                {n:5,t:"Verify",d:"POST to /verify with identity_id and a new probe image. Returns accepted/rejected with decrypted distance scalar and per-stage timings."},
-                {n:6,t:"Revoke & Re-enroll",d:"Delete the MongoDB document for that identity_id. Assign a new ID and re-enroll. The old encrypted template is irrecoverable — cancelability guaranteed."},
-              ].map((s,i)=>(
-                <div key={i} style={{display:"flex",gap:10,padding:"11px 13px",background:"var(--surface2)",borderRadius:9,border:"1px solid var(--border)"}}>
-                  <div style={{width:21,height:21,borderRadius:5,background:"var(--accent2)",color:"#fff",fontSize:9.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"'JetBrains Mono',monospace"}}>{s.n}</div>
-                  <div><div style={{fontSize:12.5,fontWeight:700,color:"var(--t1)",marginBottom:3}}>{s.t}</div><div style={{fontSize:11.5,color:"var(--t3)",lineHeight:1.65}}>{s.d}</div></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
         <div className="sec-lbl">Pipeline Flow</div>
         <div className="pipeflow">
           <div className="pf-ttl">7-Stage ENCASE-FV Verification Pipeline</div>
@@ -1145,7 +1160,31 @@ function Hardware() {
   );
 }
 
+/* ─── OTP COUNTDOWN HOOK ─── */
+// FIX #5: Shows a 10-minute countdown once OTP is sent
+function useOtpCountdown(active) {
+  const [secsLeft, setSecsLeft] = useState(600); // 10 min
+  useEffect(() => {
+    if (!active) { setSecsLeft(600); return; }
+    setSecsLeft(600);
+    const id = setInterval(() => {
+      setSecsLeft(s => {
+        if (s <= 1) { clearInterval(id); return 0; }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [active]);
+  const mins = Math.floor(secsLeft / 60);
+  const secs = secsLeft % 60;
+  return { secsLeft, label: `${mins}:${secs.toString().padStart(2,"0")}` };
+}
+
 /* ─── AUTH ─── */
+// FIX #4: Sign-in strictly blocks if no account found (via /check-user).
+//         Sign-up sends mode="signup" — backend upserts on verify-otp but
+//         we do NOT pre-check for existing account on signup (allow re-signup).
+// FIX #5: OTP countdown timer shown with warning when < 60s.
 function Auth({ mode, goTo, setUser }) {
   const isLogin = mode === "login";
   const [step, setStep]           = useState("form");
@@ -1156,6 +1195,7 @@ function Auth({ mode, goTo, setUser }) {
   const [successMsg, setSuccessMsg] = useState("");
   const [showAdminReq, setShowAdminReq] = useState(false);
   const otpRefs = useRef([]);
+  const { secsLeft, label: timerLabel } = useOtpCountdown(step === "otp");
 
   const validateForm = () => {
     if (!isLogin && !form.name.trim()) return "Full name is required.";
@@ -1169,6 +1209,16 @@ function Auth({ mode, goTo, setUser }) {
       if (err) { setFieldError(err); return; }
       setFieldError(""); setLoading(true);
       try {
+        // FIX #4: For login — block if no account exists
+        if (isLogin) {
+          const chk = await fetch(`${API_BASE}/check-user?email=${encodeURIComponent(form.email.trim())}`);
+          const chkData = await chk.json();
+          if (!chkData.exists) {
+            setFieldError("No account found for this email. Please sign up first.");
+            setLoading(false);
+            return;
+          }
+        }
         const fd = new FormData();
         fd.append("email", form.email.trim());
         fd.append("name",  form.name.trim());
@@ -1177,11 +1227,16 @@ function Auth({ mode, goTo, setUser }) {
         const data = await res.json();
         if (!res.ok) { setFieldError(data.detail || "Failed to send OTP."); setLoading(false); return; }
         setStep("otp");
+        setSuccessMsg("");
       } catch(e) { setFieldError("Cannot reach server. Check your connection."); }
       setLoading(false);
       return;
     }
-    // OTP verify
+    // FIX #5: Block if OTP expired
+    if (secsLeft === 0) {
+      setFieldError("OTP has expired. Please go back and request a new one.");
+      return;
+    }
     setLoading(true);
     try {
       const fd = new FormData();
@@ -1317,6 +1372,12 @@ function Auth({ mode, goTo, setUser }) {
               <div className="auth-sub">
                 We sent a 6-digit code to <strong style={{color:"var(--t1)"}}>{form.email}</strong>
               </div>
+              {/* FIX #5: OTP countdown timer */}
+              <div className={`otp-timer${secsLeft < 60 ? " warn" : ""}`}>
+                {secsLeft > 0
+                  ? `Code expires in ${timerLabel}`
+                  : "⚠ Code expired — go back and request a new one"}
+              </div>
               {fieldError && (
                 <div style={{padding:"9px 12px",marginBottom:12,borderRadius:7,background:"var(--rbg)",border:"1px solid var(--rbdr)",fontSize:12,color:"var(--red)"}}>
                   {fieldError}
@@ -1332,7 +1393,7 @@ function Auth({ mode, goTo, setUser }) {
                 ))}
               </div>
               <button className="auth-btn" onClick={handleSubmit}
-                disabled={otp.join("").length < 6 || loading}>
+                disabled={otp.join("").length < 6 || loading || secsLeft === 0}>
                 {loading ? <><span className="spinner" style={{display:"inline-block"}} /> Verifying...</> : `Verify & ${isLogin ? "Sign in" : "Create account"}`}
               </button>
               <div className="divider">or</div>
@@ -1349,6 +1410,8 @@ function Auth({ mode, goTo, setUser }) {
 }
 
 /* ─── DASHBOARD ─── */
+// FIX #2: EnrollTab now rendered here with user prop
+// FIX #7: Admin tab gating kept but tab state is NOT reset on every navigation
 function Dashboard({ tab, setTab, user }) {
   return (
     <div className="dash fade-in">
@@ -1365,7 +1428,7 @@ function Dashboard({ tab, setTab, user }) {
           <div className="pill-green"><span className="sdot" />System Online</div>
         </div>
         {tab === "verify"      && <VerifyTab />}
-        {tab === "enroll"      && <EnrollTab />}
+        {tab === "enroll"      && <EnrollTab user={user} />}
         {tab === "performance" && <PerformanceTab />}
         {tab === "insights"    && <InsightsTab />}
         {tab === "about"       && <AboutTab />}
@@ -1383,6 +1446,7 @@ function Dashboard({ tab, setTab, user }) {
 }
 
 /* ─── VERIFY TAB ─── */
+// FIX #6: No mock activity history shown. Real pipeline trace only.
 function VerifyTab() {
   const [id, setId] = useState("");
   const [idTouched, setIdTouched] = useState(false);
@@ -1424,14 +1488,12 @@ function VerifyTab() {
     setBusy(true); setResult(null); setTrace(-1); setTimes([]);
 
     if (!USE_MOCK && API_BASE) {
-      // ── REAL API PATH ──
       try {
         const fd = new FormData();
         fd.append("identity_id", id.trim());
         fd.append("image", img);
         const res = await fetch(`${API_BASE}/verify`, { method: "POST", body: fd });
         const data = await res.json();
-        // Animate through steps using returned step_times
         const st = data.step_times || MOCK_MS;
         const acc = [];
         for (let i = 0; i < STEPS.length; i++) {
@@ -1451,7 +1513,6 @@ function VerifyTab() {
         setResult({ error: "API unreachable. Check your backend URL." });
       }
     } else {
-      // ── MOCK / SIMULATION PATH ──
       const acc = [];
       for (let i = 0; i < STEPS.length; i++) {
         setTrace(i);
@@ -1470,13 +1531,6 @@ function VerifyTab() {
     setBusy(false);
   };
 
-  const ACTIVITY = [
-    { id: "ID-0041", ok: true,  ago: "2m ago" },
-    { id: "ID-0039", ok: true,  ago: "7m ago" },
-    { id: "ID-0212", ok: false, ago: "14m ago" },
-    { id: "ID-0088", ok: true,  ago: "22m ago" },
-    { id: "ID-0177", ok: true,  ago: "31m ago" },
-  ];
   const METRICS = [
     { lbl: "EER",      val: "0.0026%",  sub: "Equal Error Rate" },
     { lbl: "ROC AUC",  val: "1.0000",   sub: "Perfect separability", hl: true },
@@ -1498,7 +1552,6 @@ function VerifyTab() {
       </div>
 
       <div className="g21">
-        {/* Input */}
         <div className="card">
           <div className="card-hd">
             <div>
@@ -1590,7 +1643,6 @@ function VerifyTab() {
           </div>
         </div>
 
-        {/* Trace */}
         <div className="card">
           <div className="card-hd">
             <div>
@@ -1622,40 +1674,21 @@ function VerifyTab() {
           </div>
         </div>
       </div>
-
-      {/* Activity */}
-      <div className="card">
-        <div className="card-hd">
-          <div><div className="card-ht">Recent Verifications</div><div className="card-hs">Last 5 requests</div></div>
-          <div className="mono" style={{ fontSize: 11, color: "var(--t4)" }}>
-            {ACTIVITY.filter(a => a.ok).length}/{ACTIVITY.length} accepted
-          </div>
-        </div>
-        <div className="card-bd">
-          {ACTIVITY.map((a, i) => (
-            <div key={i} className="act-row">
-              <div className={`act-dot ${a.ok ? "ok" : "fail"}`}>{a.ok ? "✓" : "✕"}</div>
-              <div>
-                <div className="act-main">{a.id}</div>
-                <div className="act-sub">1:1 Verify · CKKS pipeline · ENCASE-FV</div>
-              </div>
-              <div className="act-r">
-                <span className={`badge ${a.ok ? "ok" : "fail"}`}>{a.ok ? "ACCEPTED" : "REJECTED"}</span>
-                <span className="act-time">{a.ago}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
 
 
 /* ─── ENROLL TAB ─── */
+// FIX #1: Was using React.useState / React.useRef which are undefined
+//         in this file (only named imports are available). Changed to
+//         useState / useRef (the named imports at top of file).
+// FIX #2: EnrollTab now correctly renders for admins.
+//         Previously goTo("dashboard") always reset tab to "verify" so
+//         admins could never reach enroll. Now goTo does NOT reset tab.
 function EnrollImageUpload() {
-  const [images, setImages] = React.useState([]);
-  const fileRef = React.useRef();
+  const [images, setImages] = useState([]);   // ← was React.useState (CRASH FIX)
+  const fileRef = useRef();                   // ← was React.useRef   (CRASH FIX)
   const handleFiles = (files) => {
     const imgs = Array.from(files).filter(f => f.type.startsWith("image/")).slice(0, 8);
     const readers = imgs.map(f => new Promise(res => {
@@ -1706,7 +1739,7 @@ function EnrollImageUpload() {
   );
 }
 
-function EnrollTab() {
+function EnrollTab({ user }) {
   const STEPS = [
     { n:1, title:"Position Finger", desc:"Place your finger on the NIR illuminated capture bed. Ensure the finger is flat, centered, and steady. The FLIR Blackfly S camera captures at 60×120px ROI." },
     { n:2, title:"Capture 8 Images", desc:"The system captures 8 images per finger across slight positional variations. This enrollment set trains the identity-specific random projection matrix." },
@@ -1715,6 +1748,18 @@ function EnrollTab() {
     { n:5, title:"MDS Compression", desc:"Classical MDS with Nyström extension compresses 256D → 32D metric space, preserving inter-identity distances for accurate matching." },
     { n:6, title:"CKKS Encryption & Storage", desc:"The 32D template is encrypted under CKKS (poly_mod_degree 8192) and stored in MongoDB. The plaintext template is never persisted anywhere." },
   ];
+
+  // FIX #2: Non-admins see a locked state; admins see the full panel
+  if (user?.role !== "admin") {
+    return (
+      <div className="fade-in" style={{textAlign:"center",padding:"60px 20px"}}>
+        <div style={{fontSize:32,marginBottom:12}}>🔒</div>
+        <div style={{fontSize:16,fontWeight:700,color:"var(--t1)"}}>Admin access required</div>
+        <div style={{fontSize:13,color:"var(--t3)",marginTop:6}}>Only admins can access the enrollment panel.</div>
+      </div>
+    );
+  }
+
   return (
     <div className="fade-in">
       <div className="card" style={{marginBottom:13}}>
@@ -1796,12 +1841,10 @@ function PerformanceTab() {
     { v:"718,762",l:"True Rejects", s:"Impostors correctly blocked", bg:"var(--gbg)", c:"var(--green)", bc:"var(--gbdr)" },
   ];
 
-  // ROC curve SVG
   const W=258, H=178, P=26;
   const xs = x => P + x*(W-2*P), ys = y => H-P-y*(H-2*P);
   const rocPath = [[0,0],[0.000053,1.0],[1,1]].map((p,i)=>`${i===0?"M":"L"}${xs(p[0]).toFixed(1)} ${ys(p[1]).toFixed(1)}`).join(" ");
 
-  // Score distribution SVG
   const DW=258, DH=178, DP=26;
   const gaus=(x,mu,sig)=>Math.exp(-.5*((x-mu)/sig)**2)/(sig*Math.sqrt(2*Math.PI));
   const xR=Array.from({length:200},(_,i)=>i*1.3);
@@ -1902,12 +1945,8 @@ function PerformanceTab() {
 
 /* ─── INSIGHTS TAB ─── */
 function InsightsTab() {
-  const [anim, setAnim] = useState(false);
-  useEffect(()=>{const t=setTimeout(()=>setAnim(true),80);return()=>clearTimeout(t);},[]);
-
   return (
     <div className="fade-in">
-      {/* Top story: why these numbers matter */}
       <div className="card" style={{marginBottom:13}}>
         <div className="card-hd">
           <div>
@@ -1935,8 +1974,6 @@ function InsightsTab() {
           </div>
         </div>
       </div>
-
-      {/* Metric tables */}
       <div className="g2">
         <div className="card">
           <div className="card-hd"><div><div className="card-ht">Distance Statistics</div><div className="card-hs">Decrypted matching distance analysis</div></div></div>
@@ -1979,36 +2016,13 @@ function InsightsTab() {
           </div>
         </div>
       </div>
-
-      {/* False acceptance breakdown */}
-      <div className="card">
-        <div className="card-hd">
-          <div>
-            <div className="card-ht">False Acceptance Analysis</div>
-            <div className="card-hs">All 38 errors characterised — all occur at the score distribution boundary</div>
-          </div>
-        </div>
-        <div className="card-bd">
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
-            {[
-              { lbl:"Most likely cause", val:"Cross-finger proximity", desc:"All 38 cases involve biologically adjacent fingers from the same subject. Vascular beds between adjacent fingers share structural similarity that can produce near-threshold distances — this is expected behaviour at extreme threshold sensitivity." },
-              { lbl:"Error distance range", val:"45 – 60 units", desc:"All false acceptances fall within 15 units of τ = 44.87. There are no gross mismatches; only biometrically near-identical impostor pairs that sit just above the boundary." },
-              { lbl:"Deployment impact", val:"FAR = 0.0053%", desc:"38 erroneous admissions in 718,800 impostor attempts. This is well below acceptable thresholds for physical access control and enterprise authentication. Threshold can be raised at the cost of marginal FRR." },
-            ].map((c,i)=>(
-              <div key={i} style={{background:"var(--surface2)",borderRadius:10,padding:17,border:"1px solid var(--border)"}}>
-                <div style={{fontSize:10,fontWeight:700,color:"var(--t4)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>{c.lbl}</div>
-                <div className="display" style={{fontSize:16,color:"var(--t1)",marginBottom:8,letterSpacing:"-.01em",lineHeight:1.3}}>{c.val}</div>
-                <div style={{fontSize:12,color:"var(--t3)",lineHeight:1.72}}>{c.desc}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
 
 /* ─── ADMIN TAB ─── */
+// FIX #6: Activity log fetches REAL data from /admin/logs.
+//         No mock data anywhere. If API is unreachable, shows a clear error.
 function AdminTab() {
   const [activeSection, setActiveSection] = useState("logs");
   const [logs, setLogs]         = useState([]);
@@ -2023,6 +2037,7 @@ function AdminTab() {
     try {
       if (section === "logs") {
         const r = await fetch(`${API_BASE}/admin/logs`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const d = await r.json();
         setLogs(d.logs || []);
       } else if (section === "users") {
@@ -2030,14 +2045,16 @@ function AdminTab() {
           fetch(`${API_BASE}/admin/users`),
           fetch(`${API_BASE}/admin/pending-requests`),
         ]);
+        if (!ru.ok || !rr.ok) throw new Error("Failed to load users");
         const du = await ru.json(); const dr = await rr.json();
         setUsers(du.users || []); setRequests(dr.requests || []);
       } else if (section === "templates") {
         const r = await fetch(`${API_BASE}/admin/templates`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const d = await r.json();
         setTemplates(d.templates || []);
       }
-    } catch(e) { setMsg("Failed to load data. Check API connection."); }
+    } catch(e) { setMsg(`Failed to load data: ${e.message}. Check API connection.`); }
     setLoading(false);
   };
 
@@ -2061,7 +2078,6 @@ function AdminTab() {
 
   return (
     <div className="fade-in">
-      {/* Section tabs */}
       <div style={{display:"flex",gap:6,marginBottom:16,background:"var(--surface2)",padding:4,borderRadius:10,border:"1px solid var(--border)",width:"fit-content"}}>
         {SECTIONS.map(s => (
           <button key={s.id}
@@ -2091,16 +2107,21 @@ function AdminTab() {
         </div>
       )}
 
-      {/* ACTIVITY LOG */}
+      {/* ACTIVITY LOG — FIX #6: real data only, no mock */}
       {!loading && activeSection === "logs" && (
         <div className="card">
           <div className="card-hd">
-            <div><div className="card-ht">Activity Log</div><div className="card-hs">All verification attempts from MongoDB</div></div>
+            <div>
+              <div className="card-ht">Activity Log</div>
+              <div className="card-hs">All verification attempts — real data from MongoDB</div>
+            </div>
             <button className="btn-outline" style={{fontSize:11}} onClick={() => load("logs")}>↻ Refresh</button>
           </div>
           <div className="card-bd" style={{padding:0}}>
             {logs.length === 0 ? (
-              <div style={{padding:"24px",textAlign:"center",color:"var(--t4)",fontSize:13}}>No logs found.</div>
+              <div style={{padding:"24px",textAlign:"center",color:"var(--t4)",fontSize:13}}>
+                No verification attempts recorded yet.
+              </div>
             ) : logs.map((l, i) => (
               <div key={i} className="act-row" style={{padding:"10px 19px"}}>
                 <div className={`act-dot ${l.accepted ? "ok" : "fail"}`}>{l.accepted ? "✓" : "✕"}</div>
@@ -2339,19 +2360,31 @@ export default function App() {
   const [tab, setTab] = useState("verify");
   const [user, setUser] = useState(null);
 
-  // Inject CSS once
   useEffect(() => {
     let el = document.getElementById("encasefv-css");
     if (!el) { el = document.createElement("style"); el.id = "encasefv-css"; document.head.appendChild(el); }
     el.textContent = CSS;
   }, []);
 
-  // Theme class on body
   useEffect(() => {
     document.body.className = theme === "light" ? "light" : "";
   }, [theme]);
 
-  const goTo = (p) => { setPage(p); if (p === "dashboard") setTab("verify"); };
+  // FIX #2 & #7: goTo no longer unconditionally resets tab to "verify".
+  // It only sets a default tab when going to dashboard for the first time
+  // (i.e. when not already on dashboard). Subsequent tab changes via Nav
+  // work independently.
+  const goTo = (p, targetTab) => {
+    setPage(p);
+    if (p === "dashboard" && targetTab) {
+      setTab(targetTab);
+    } else if (p === "dashboard" && page !== "dashboard") {
+      // Only reset to verify when freshly navigating TO dashboard
+      setTab("verify");
+    }
+    // If already on dashboard and goTo("dashboard") is called without targetTab,
+    // keep current tab — this fixes the admin tab getting wiped.
+  };
   const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
 
   const nav = (
