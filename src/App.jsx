@@ -829,7 +829,7 @@ const VeinIcon = ({ size = 14, color = "white" }) => (
 /* ─── VIEW DEMO MODAL ─── */
 // FIX #3: "View Demo" now shows a modal explaining the demo is read-only
 // and asks user to sign in/up. It does NOT silently route anyone into the dashboard.
-function ViewDemoModal({ goTo, onClose }) {
+function ViewDemoModal({ goTo, onClose, user }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
@@ -838,8 +838,9 @@ function ViewDemoModal({ goTo, onClose }) {
         <div className="modal-p">
           The ENCASE-FV demo dashboard lets you run the full 7-stage CKKS homomorphic verification
           pipeline live with real finger vein images.<br /><br />
-          To access the demo you need a free account. Sign up in seconds — no credit card, no hardware required.
-          Admins additionally get access to the enrollment panel and activity logs.
+          {user
+            ? `Welcome back, ${user.name}! Click below to go straight to the dashboard.`
+            : "To access the demo you need a free account. Sign up in seconds — no credit card, no hardware required. Admins additionally get access to the enrollment panel and activity logs."}
         </div>
         <div style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 16px", marginBottom: 20, fontSize: 12.5, color: "var(--t3)", lineHeight: 1.7 }}>
           <strong style={{ color: "var(--accent2)" }}>What you can do in the demo:</strong><br />
@@ -849,8 +850,14 @@ function ViewDemoModal({ goTo, onClose }) {
         </div>
         <div className="modal-btns">
           <button className="btn-outline" onClick={onClose}>Maybe later</button>
-          <button className="btn-outline" style={{ marginLeft: 0 }} onClick={() => { onClose(); goTo("login"); }}>Sign in</button>
-          <button className="btn-solid" onClick={() => { onClose(); goTo("signup"); }}>Create account</button>
+          {user ? (
+            <button className="btn-solid" onClick={() => { onClose(); goTo("dashboard"); }}>Go to Dashboard →</button>
+          ) : (
+            <>
+              <button className="btn-outline" style={{ marginLeft: 0 }} onClick={() => { onClose(); goTo("login"); }}>Sign in</button>
+              <button className="btn-solid" onClick={() => { onClose(); goTo("signup"); }}>Create account</button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -913,12 +920,12 @@ function Nav({ theme, toggleTheme, page, goTo, dashTab, setDashTab, user, setUse
 }
 
 /* ─── LANDING ─── */
-function Landing({ goTo }) {
+function Landing({ goTo, user }) {
   const [showDemoModal, setShowDemoModal] = useState(false);
   return (
     <div className="landing">
       {/* FIX #3: Demo modal gating */}
-      {showDemoModal && <ViewDemoModal goTo={goTo} onClose={() => setShowDemoModal(false)} />}
+      {showDemoModal && <ViewDemoModal goTo={goTo} onClose={() => setShowDemoModal(false)} user={user} />}
       <div className="land-rel">
         <div className="orb orb-a" />
         <div className="orb orb-b" />
@@ -950,7 +957,7 @@ function Landing({ goTo }) {
             <div className="hero-cta">
               <button className="cta-p" onClick={() => goTo("signup")}>Get Started</button>
               {/* FIX #3: now opens modal instead of routing to login directly */}
-              <button className="cta-s" onClick={() => setShowDemoModal(true)}>View Demo</button>
+              <button className="cta-s" onClick={() => user ? goTo("dashboard") : setShowDemoModal(true)}>View Demo</button>
             </div>
             <p style={{fontSize:13,color:"var(--t4)",marginBottom:22,lineHeight:1.65,maxWidth:420}}>
               The only biometric system where verification happens entirely inside an encryption — your enrolled template is mathematically impossible to reverse-engineer, even if the database is breached.
@@ -969,7 +976,7 @@ function Landing({ goTo }) {
             </div>
           </div>
           <div className="hero-r">
-            <div className="fcard" onClick={() => setShowDemoModal(true)} style={{flex:1}}>
+            <div className="fcard" onClick={() => user ? goTo("dashboard") : setShowDemoModal(true)} style={{flex:1}}>
               <div className="fc-top">
                 <div>
                   <div className="fc-lbl">Live Demo</div>
@@ -1185,8 +1192,12 @@ function useOtpCountdown(active) {
 //         Sign-up sends mode="signup" — backend upserts on verify-otp but
 //         we do NOT pre-check for existing account on signup (allow re-signup).
 // FIX #5: OTP countdown timer shown with warning when < 60s.
-function Auth({ mode, goTo, setUser }) {
+function Auth({ mode, goTo, setUser, user }) {
   const isLogin = mode === "login";
+  // If already signed in, redirect to dashboard immediately
+  useEffect(() => {
+    if (user) goTo("dashboard");
+  }, [user]);
   const [step, setStep]           = useState("form");
   const [form, setForm]           = useState({ name: "", email: "" });
   const [otp, setOtp]             = useState(["","","","","",""]);
@@ -1213,7 +1224,9 @@ function Auth({ mode, goTo, setUser }) {
         if (isLogin) {
           const chk = await fetch(`${API_BASE}/check-user?email=${encodeURIComponent(form.email.trim())}`);
           const chkData = await chk.json();
-          if (!chkData.exists) {
+          // Only block if DB is available AND user doesn't exist
+          // If db_available is false (DB down), allow OTP to proceed
+          if (chkData.db_available !== false && !chkData.exists) {
             setFieldError("No account found for this email. Please sign up first.");
             setLoading(false);
             return;
@@ -1251,6 +1264,7 @@ function Auth({ mode, goTo, setUser }) {
     setLoading(false);
   };
 
+  const [adminReqSent, setAdminReqSent] = useState(false);
   const handleAdminRequest = async () => {
     setLoading(true); setFieldError("");
     try {
@@ -1260,7 +1274,7 @@ function Auth({ mode, goTo, setUser }) {
       const res = await fetch(`${API_BASE}/admin/request`, { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) { setFieldError(data.detail || "Request failed."); }
-      else { setSuccessMsg("Request sent! An admin will review it and email you."); setShowAdminReq(false); }
+      else { setAdminReqSent(true); setShowAdminReq(false); }
     } catch(e) { setFieldError("Cannot reach server."); }
     setLoading(false);
   };
@@ -1308,14 +1322,7 @@ function Auth({ mode, goTo, setUser }) {
       </div>
       <div className="auth-r">
         <div className="auth-form fade-in">
-          {successMsg ? (
-            <div style={{textAlign:"center",padding:"20px 0"}}>
-              <div style={{fontSize:36,marginBottom:14}}>✓</div>
-              <div className="auth-h display" style={{color:"var(--green)"}}>Request Sent</div>
-              <p style={{color:"var(--t3)",fontSize:13,marginTop:10,lineHeight:1.7}}>{successMsg}</p>
-              <button className="auth-btn" style={{marginTop:20}} onClick={() => goTo("login")}>Back to Sign In</button>
-            </div>
-          ) : step === "form" ? (
+          {step === "form" ? (
             <>
               <div className="auth-h display">{isLogin ? "Sign in" : "Create account"}</div>
               <div className="auth-sub">
@@ -1345,7 +1352,15 @@ function Auth({ mode, goTo, setUser }) {
               {isLogin && (
                 <div style={{marginTop:14,textAlign:"center"}}>
                   <span style={{fontSize:12,color:"var(--t4)"}}>Need admin access? </span>
-                  <span className="auth-link" style={{fontSize:12}} onClick={() => setShowAdminReq(true)}>Request it here</span>
+                  <span className="auth-link" style={{fontSize:12}} onClick={() => { setShowAdminReq(true); setAdminReqSent(false); }}>Request it here</span>
+                </div>
+              )}
+              {adminReqSent && (
+                <div style={{marginTop:12,padding:"11px 14px",borderRadius:8,
+                  background:"var(--gbg)",border:"1px solid var(--gbdr)",
+                  fontSize:12.5,color:"var(--green)",lineHeight:1.65}}>
+                  ✓ Request sent! An admin will review it and email you.<br/>
+                  <span style={{color:"var(--t4)",fontSize:11.5}}>You can still sign in below once approved.</span>
                 </div>
               )}
               {showAdminReq && (
@@ -1412,7 +1427,22 @@ function Auth({ mode, goTo, setUser }) {
 /* ─── DASHBOARD ─── */
 // FIX #2: EnrollTab now rendered here with user prop
 // FIX #7: Admin tab gating kept but tab state is NOT reset on every navigation
-function Dashboard({ tab, setTab, user }) {
+function Dashboard({ tab, setTab, user, setUser }) {
+  // Refresh user role from DB on mount — picks up admin approvals since last login
+  // We re-send OTP only if we detect a role mismatch — not ideal.
+  // Instead, show a "Refresh role" button in the welcome bar.
+  // Refresh role from DB on mount — picks up admin approvals without re-login
+  useEffect(() => {
+    if (!user?.email) return;
+    fetch(`${API_BASE}/check-user?email=${encodeURIComponent(user.email)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.db_available && d.role && d.role !== user.role) {
+          setUser(prev => prev ? {...prev, role: d.role} : prev);
+        }
+      })
+      .catch(() => {});
+  }, []);
   return (
     <div className="dash fade-in">
       <div className="dash-in">
@@ -1425,7 +1455,16 @@ function Dashboard({ tab, setTab, user }) {
               Encrypted Cancelable Authentication · CKKS Homomorphic Encryption · MMCBNU_6000
             </div>
           </div>
-          <div className="pill-green"><span className="sdot" />System Online</div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <div className="pill-green"><span className="sdot" />System Online</div>
+            {user && user.role !== "admin" && (
+              <div style={{fontSize:10.5,color:"var(--t4)",padding:"4px 10px",borderRadius:6,
+                background:"var(--surface2)",border:"1px solid var(--border)",cursor:"default"}}
+                title="Role is refreshed automatically. If recently approved as admin, it will update now.">
+                Role: {user.role?.toUpperCase()}
+              </div>
+            )}
+          </div>
         </div>
         {tab === "verify"          && <VerifyTab />}
         {tab === "enroll"          && <EnrollTab user={user} />}
@@ -1586,7 +1625,7 @@ function VerifyTab() {
               onDragOver={e => { e.preventDefault(); setDrag(true); }}
               onDragLeave={() => setDrag(false)}
               onDrop={e => { e.preventDefault(); setDrag(false); loadFile(e.dataTransfer.files[0]); }}
-              onClick={() => !preview && fileRef.current?.click()}
+              onClick={() => fileRef.current?.click()}
             >
               {preview ? (
                 <>
@@ -1594,7 +1633,8 @@ function VerifyTab() {
                   <div className="dz-bar">
                     <span style={{ fontSize: 10, color: "var(--green)" }}>✓</span>
                     <span className="dz-fname">{img?.name}</span>
-                    <span className="dz-rm" onClick={e => { e.stopPropagation(); setImg(null); setPreview(null); setResult(null); setTrace(-1); }}>Remove</span>
+                    <span className="dz-rm" onClick={e => { e.stopPropagation(); fileRef.current?.click(); }} title="Upload another image">↺ Replace</span>
+                    <span className="dz-rm" onClick={e => { e.stopPropagation(); setImg(null); setPreview(null); setResult(null); setTrace(-1); }}>✕ Remove</span>
                   </div>
                 </>
               ) : (
@@ -2132,7 +2172,7 @@ function AdminTab() {
                 </div>
                 <div className="act-r">
                   <span className={`badge ${l.accepted ? "ok" : "fail"}`}>{l.accepted ? "ACCEPTED" : "REJECTED"}</span>
-                  <span className="act-time">{l.timestamp ? new Date(l.timestamp).toLocaleString() : "—"}</span>
+                  <span className="act-time">{l.timestamp ? (() => { const d = new Date(l.timestamp); const ist = new Date(d.getTime() + (5.5*60*60*1000)); const hh = ist.getUTCHours(); const mm = String(ist.getUTCMinutes()).padStart(2,"0"); const ampm = hh >= 12 ? "PM" : "AM"; const h12 = hh % 12 || 12; const mo = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][ist.getUTCMonth()]; return `${ist.getUTCDate()} ${mo}, ${h12}:${mm} ${ampm} IST`; })() : "—"}</span>
                 </div>
               </div>
             ))}
@@ -2160,7 +2200,7 @@ function AdminTab() {
                       <div style={{fontSize:11,color:"var(--t4)"}}>{r.email}</div>
                     </div>
                     <div style={{fontSize:11,color:"var(--t4)",fontFamily:"'JetBrains Mono',monospace"}}>
-                      {r.created_at ? new Date(r.created_at).toLocaleDateString() : "—"}
+                      {r.created_at ? (() => { const d = new Date(r.created_at); const ist = new Date(d.getTime()+(5.5*60*60*1000)); return `${ist.getUTCDate()} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][ist.getUTCMonth()]} ${ist.getUTCFullYear()}`; })() : "—"}
                     </div>
                     <div style={{fontSize:10,fontWeight:700,color:"var(--amber)",background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.2)",padding:"3px 8px",borderRadius:4}}>PENDING</div>
                   </div>
@@ -2638,7 +2678,7 @@ function CancelabilityTab() {
                       cos={e.cos_256?.toFixed(5)} &middot; {e.elapsed_ms}ms
                     </div>
                   </div>
-                  <div style={{fontSize:10,color:"var(--t4)"}}>{e.timestamp ? new Date(e.timestamp).toLocaleTimeString() : ""}</div>
+                  <div style={{fontSize:10,color:"var(--t4)"}}>{e.timestamp ? (() => { const d = new Date(e.timestamp); const ist = new Date(d.getTime() + (5.5*60*60*1000)); const hh = ist.getUTCHours(); const mm = String(ist.getUTCMinutes()).padStart(2,"0"); const ampm = hh >= 12 ? "PM" : "AM"; return `${hh%12||12}:${mm} ${ampm} IST`; })() : ""}</div>
                   <div style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:4,
                     background: e.unlinkable ? "var(--gbg)" : "rgba(245,158,11,.06)",
                     color: e.unlinkable ? "var(--green)" : "var(--amber)",
@@ -2661,18 +2701,18 @@ function CancelabilityTab() {
         <div className="card-bd">
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <div style={{padding:"14px 16px",borderRadius:10,background:"var(--rbg)",border:"1px solid var(--rbdr)"}}>
-              <div style={{fontSize:12,fontWeight:700,color:"var(--red)",marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"}}>\u274C Conventional System</div>
+              <div style={{fontSize:12,fontWeight:700,color:"var(--red)",marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"}}>✕ Conventional System</div>
               {["Plaintext or hashed templates in DB","Breach = permanent compromise for all users","Cannot revoke — you cannot change your fingerprint","Old templates reusable for replay attacks","Single failure affects all enrolled identities"].map((t,i) => (
                 <div key={i} style={{display:"flex",gap:8,marginBottom:7,fontSize:12,color:"var(--t3)",lineHeight:1.6}}>
-                  <span style={{color:"var(--red)",flexShrink:0}}>\u2715</span>{t}
+                  <span style={{color:"var(--red)",flexShrink:0}}>✕</span>{t}
                 </div>
               ))}
             </div>
             <div style={{padding:"14px 16px",borderRadius:10,background:"var(--gbg)",border:"1px solid var(--gbdr)"}}>
-              <div style={{fontSize:12,fontWeight:700,color:"var(--green)",marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"}}>\u2713 ENCASE-FV</div>
+              <div style={{fontSize:12,fontWeight:700,color:"var(--green)",marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"}}>✓ ENCASE-FV</div>
               {["CKKS ciphertext only — plaintext never persisted","Breach exposes only IND-CPA-secure ciphertext","Revoke in O(1): rotate token, re-derive template","Old and new templates near-orthogonal in 256D space","Each identity has an independent cancelability key"].map((t,i) => (
                 <div key={i} style={{display:"flex",gap:8,marginBottom:7,fontSize:12,color:"var(--t3)",lineHeight:1.6}}>
-                  <span style={{color:"var(--green)",flexShrink:0}}>\u2713</span>{t}
+                  <span style={{color:"var(--green)",flexShrink:0}}>✓</span>{t}
                 </div>
               ))}
             </div>
@@ -2794,11 +2834,11 @@ export default function App() {
   return (
     <>
       {nav}
-      {page === "landing"   && <Landing goTo={goTo} />}
+      {page === "landing"   && <Landing goTo={goTo} user={user} />}
       {page === "hardware"  && <Hardware />}
-      {page === "login"     && <Auth mode="login" goTo={goTo} setUser={setUser} />}
-      {page === "signup"    && <Auth mode="signup" goTo={goTo} setUser={setUser} />}
-      {page === "dashboard" && <Dashboard tab={tab} setTab={setTab} user={user} />}
+      {page === "login"     && <Auth mode="login" goTo={goTo} setUser={setUser} user={user} />}
+      {page === "signup"    && <Auth mode="signup" goTo={goTo} setUser={setUser} user={user} />}
+      {page === "dashboard" && <Dashboard tab={tab} setTab={setTab} user={user} setUser={setUser} />}
     </>
   );
 }
