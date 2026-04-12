@@ -17,7 +17,7 @@ import { useState, useEffect, useRef } from "react";
 ═══════════════════════════════════════════════════════════════ */
 
 /* ─── API CONFIG ────────────────────────────────────────────── */
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://encase-fv-api.onrender.com";
 const USE_MOCK = false;
 
 /* ─── GLOBAL CSS ─────────────────────────────────────────────── */
