@@ -2329,7 +2329,7 @@ function AdminTab() {
 }
 
 /* ─── CANCELABILITY TAB ─── */
-function CancelabilityTab({user) { 
+function CancelabilityTab({user}) { 
    // 🔒 ADMIN LOCK (same as EnrollTab)
   if (user?.role !== "admin") {
     return (
