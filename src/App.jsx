@@ -1470,7 +1470,7 @@ function Dashboard({ tab, setTab, user, setUser }) {
         {tab === "enroll"          && <EnrollTab user={user} />}
         {tab === "performance"     && <PerformanceTab />}
         {tab === "insights"        && <InsightsTab />}
-        {tab === "cancelability"   && <CancelabilityTab />}
+        {tab === "cancelability"   && <CancelabilityTab user={user} />}
         {tab === "about"           && <AboutTab />}
         {tab === "admin"       && user?.role === "admin" && <AdminTab />}
         {tab === "admin"       && user?.role !== "admin" && (
@@ -2329,7 +2329,19 @@ function AdminTab() {
 }
 
 /* ─── CANCELABILITY TAB ─── */
-function CancelabilityTab() {
+function CancelabilityTab({user) { 
+   // 🔒 ADMIN LOCK (same as EnrollTab)
+  if (user?.role !== "admin") {
+    return (
+      <div className="fade-in" style={{textAlign:"center",padding:"60px 20px"}}>
+        <div style={{fontSize:32,marginBottom:12}}>🔒</div>
+        <div style={{fontSize:16,fontWeight:700,color:"var(--t1)"}}>Admin access required</div>
+        <div style={{fontSize:13,color:"var(--t3)",marginTop:6}}>
+          Only admins can access the cancelability panel.
+        </div>
+      </div>
+    );
+  }
   const [idInput, setIdInput]     = useState("42");
   const [status, setStatus]       = useState(null);   // from /cancel/status
   const [revokeResult, setRevokeResult] = useState(null);
